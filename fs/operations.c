@@ -266,6 +266,8 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     int dest = tfs_open(dest_path, open_mode);
     if (dest == -1) {
         return -1;
+        //Close external file
+        fclose(source);
     }
 
     // Read from source, write to dest
@@ -276,6 +278,9 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
         tfs_write(dest, buffer, bytes_read);
         bytes_read = fread(buffer, 1, EXT_BUFFER, source);
     }
+    //Close files
+    tfs_close(dest);
+    fclose(source);
 
     return 0;
 
