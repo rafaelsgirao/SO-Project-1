@@ -269,12 +269,12 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     }
 
     // Read from source, write to dest
-    char buffer[1024];
-    size_t bytes_read = fread(buffer, 1, 1024, source);
+    char buffer[BUFFER_VAL];
+    size_t bytes_read = fread(buffer, 1, BUFFER_VAL, source);
 
     while (bytes_read > 0) {
         tfs_write(dest, buffer, bytes_read);
-        bytes_read = fread(buffer, 1, 1024, source);
+        bytes_read = fread(buffer, 1, BUFFER_VAL, source);
     }
 
     return 0;
