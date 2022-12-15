@@ -244,11 +244,32 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
 }
 
 int tfs_unlink(char const *target) {
-    (void)target;
-    // ^ this is a trick to keep the compiler from complaining about unused
-    // variables. TODO: remove
+    // get targets inode
+    int i_target_num = tfs_lookup(target, inode_get(ROOT_DIR_INUM));
+    inode_t *i_target = inode_get(i_target_num);
+    if (i_target == NULL)
+        return -1;
 
-    PANIC("TODO: tfs_unlink");
+    if (i_target->i_links - 1 <= 0)
+        remove(target);
+    else {
+        switch (i_target->i_node_type) {
+        case T_DIRECTORY:
+            // removes link to directory
+            break;
+        case T_FILE:
+            // removes link to file
+            break;
+        case T_SYM_LINK:
+            // removes the symbolic link
+            break;
+        default:
+            return -1;
+            break;
+        }
+    }
+
+    return 0;
 }
 
 int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
