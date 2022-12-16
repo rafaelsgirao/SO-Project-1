@@ -8,4 +8,7 @@
 
 #define DELAY (5000)
 
+// Buffer to use when reading from external filesystems
+#define EXT_BUFFER 512
+
 #endif // CONFIG_H
