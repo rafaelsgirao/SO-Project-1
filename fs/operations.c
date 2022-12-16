@@ -280,13 +280,12 @@ int tfs_unlink(char const *target) {
         return -1;
 
     if (i_target->i_links - 1 <= 0) {
-        if (i_target->i_node_type != T_SYM_LINK)
-            data_block_free(i_target->i_data_block);
         inode_delete(i_target_num);
     } else {
         i_target->i_links--;
-        clear_dir_entry(inode_get(ROOT_DIR_INUM), target_sub);
     }
+
+    clear_dir_entry(inode_get(ROOT_DIR_INUM), target_sub);
 
     return 0;
 }
