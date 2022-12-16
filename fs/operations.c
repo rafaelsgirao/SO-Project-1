@@ -133,28 +133,53 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
 }
 
 int tfs_sym_link(char const *target, char const *link_name) {
-    (void)target;
-    (void)link_name;
-    // ^ this is a trick to keep the compiler from complaining about unused
-    // variables. TODO: remove
+    if (!valid_pathname(link_name) || !valid_pathname(target))
+        return -1;
 
-    PANIC("TODO: tfs_sym_link");
+    int i_target_num = tfs_lookup(target, inode_get(ROOT_DIR_INUM));
+    if (i_target_num == -1)
+        return -1;
+
+    inode_t *i_target = inode_get(i_target_num);
+    if (i_target == NULL)
+        return -1;
+
+    int i_link_number = inode_create(T_SYM_LINK);
+    if (i_link_number == -1)
+        return -1;
+
+    inode_t *i_link = inode_get(i_link_number);
+    if (i_link == NULL)
+        return -1;
+
+    // initializes link's inode
+    strcpy(i_link->i_target_d_name, target);
+
+    const char *link_sub = link_name + 1;
+    if (add_dir_entry(inode_get(ROOT_DIR_INUM), link_sub, i_link_number) == -1)
+        return -1;
+
+    return 0;
 }
 
 int tfs_link(char const *target, char const *link_name) {
-    // gets the target directory
     if (!valid_pathname(target) || !valid_pathname(link_name))
         return -1;
 
+    // we must remove the '/' when adding to dir entry
+    const char *link_sub = link_name + 1;
+
     inode_t *iroot = inode_get(ROOT_DIR_INUM);
+    ALWAYS_ASSERT(iroot != NULL, "tfs_link: failed to find root dir inode");
 
     int target_inumber = tfs_lookup(target, iroot);
     if (target_inumber == -1)
         return -1;
 
-    add_dir_entry(iroot, link_name, target_inumber);
-
     inode_t *itarget = inode_get(target_inumber);
+    if (itarget == NULL || add_dir_entry(iroot, link_sub, target_inumber) == -1)
+        return -1;
+
     itarget->i_links++;
 
     return 0;
@@ -244,29 +269,23 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
 }
 
 int tfs_unlink(char const *target) {
-    // get targets inode
+    if (!valid_pathname(target))
+        return -1;
+
+    const char *target_sub = target + 1;
+
     int i_target_num = tfs_lookup(target, inode_get(ROOT_DIR_INUM));
     inode_t *i_target = inode_get(i_target_num);
     if (i_target == NULL)
         return -1;
 
-    if (i_target->i_links - 1 <= 0)
-        remove(target);
-    else {
-        switch (i_target->i_node_type) {
-        case T_DIRECTORY:
-            // removes link to directory
-            break;
-        case T_FILE:
-            // removes link to file
-            break;
-        case T_SYM_LINK:
-            // removes the symbolic link
-            break;
-        default:
-            return -1;
-            break;
-        }
+    if (i_target->i_links - 1 <= 0) {
+        if (i_target->i_node_type != T_SYM_LINK)
+            data_block_free(i_target->i_data_block);
+        inode_delete(i_target_num);
+    } else {
+        i_target->i_links--;
+        clear_dir_entry(inode_get(ROOT_DIR_INUM), target_sub);
     }
 
     return 0;
