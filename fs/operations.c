@@ -177,7 +177,8 @@ int tfs_link(char const *target, char const *link_name) {
         return -1;
 
     inode_t *itarget = inode_get(target_inumber);
-    if (itarget == NULL || add_dir_entry(iroot, link_sub, target_inumber) == -1)
+    if (itarget == NULL || itarget->i_node_type == T_SYM_LINK ||
+        add_dir_entry(iroot, link_sub, target_inumber) == -1)
         return -1;
 
     itarget->i_links++;
@@ -302,7 +303,7 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     tfs_file_mode_t open_mode = TFS_O_CREAT | TFS_O_TRUNC;
     int dest = tfs_open(dest_path, open_mode);
     if (dest == -1) {
-        //Close external file
+        // Close external file
         fclose(source);
         return -1;
     }
@@ -315,7 +316,7 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
         tfs_write(dest, buffer, bytes_read);
         bytes_read = fread(buffer, 1, EXT_BUFFER, source);
     }
-    //Close files
+    // Close files
     tfs_close(dest);
     fclose(source);
 
