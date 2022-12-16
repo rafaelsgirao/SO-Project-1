@@ -222,6 +222,7 @@ int inode_create(inode_type i_type) {
 
         inode_table[inumber].i_size = BLOCK_SIZE;
         inode_table[inumber].i_data_block = b;
+        inode_table[inumber].i_links = 1;
 
         dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(b);
         ALWAYS_ASSERT(dir_entry != NULL,

@@ -30,6 +30,9 @@ typedef struct {
 
     int i_links;
 
+    // Only used in symbolic links
+    char i_target_d_name[MAX_FILE_NAME];
+
     // in a more complete FS, more fields could exist here
 } inode_t;
 

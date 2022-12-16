@@ -452,3 +452,6 @@ TSWLatexianTemp*
 
 # old files folder
 _old
+
+# vscode
+.vscode/*
