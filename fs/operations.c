@@ -91,6 +91,9 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
 
+        if (inode->i_node_type == T_SYM_LINK)
+            return tfs_open(inode->i_target_d_name, mode);
+
         // Truncate (if requested)
         if (mode & TFS_O_TRUNC) {
             if (inode->i_size > 0) {
@@ -138,10 +141,6 @@ int tfs_sym_link(char const *target, char const *link_name) {
 
     int i_target_num = tfs_lookup(target, inode_get(ROOT_DIR_INUM));
     if (i_target_num == -1)
-        return -1;
-
-    inode_t *i_target = inode_get(i_target_num);
-    if (i_target == NULL)
         return -1;
 
     int i_link_number = inode_create(T_SYM_LINK);
