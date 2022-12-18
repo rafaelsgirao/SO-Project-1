@@ -91,8 +91,13 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
 
-        if (inode->i_node_type == T_SYM_LINK)
+        if (inode->i_node_type == T_SYM_LINK) {
+            // preventing infinite recursion
+            if (strcmp(inode->i_target_d_name, name) == 0)
+                return -1;
+
             return tfs_open(inode->i_target_d_name, mode);
+        }
 
         // Truncate (if requested)
         if (mode & TFS_O_TRUNC) {
@@ -139,7 +144,10 @@ int tfs_sym_link(char const *target, char const *link_name) {
     if (!valid_pathname(link_name) || !valid_pathname(target))
         return -1;
 
-    int i_target_num = tfs_lookup(target, inode_get(ROOT_DIR_INUM));
+    inode_t *iroot = inode_get(ROOT_DIR_INUM);
+    ALWAYS_ASSERT(iroot != NULL, "tfs_link: failed to find root dir inode");
+
+    int i_target_num = tfs_lookup(target, iroot);
     if (i_target_num == -1)
         return -1;
 
@@ -176,8 +184,14 @@ int tfs_link(char const *target, char const *link_name) {
         return -1;
 
     inode_t *itarget = inode_get(target_inumber);
-    if (itarget == NULL || itarget->i_node_type == T_SYM_LINK ||
-        add_dir_entry(iroot, link_sub, target_inumber) == -1)
+    if (itarget == NULL)
+        return -1;
+
+    // cannot create links to symbolic links
+    if (itarget->i_node_type == T_SYM_LINK)
+        return -1;
+
+    if (add_dir_entry(iroot, link_sub, target_inumber) == -1)
         return -1;
 
     itarget->i_links++;
@@ -275,6 +289,9 @@ int tfs_unlink(char const *target) {
     const char *target_sub = target + 1;
 
     int i_target_num = tfs_lookup(target, inode_get(ROOT_DIR_INUM));
+    if (i_target_num == -1)
+        return -1;
+
     inode_t *i_target = inode_get(i_target_num);
     if (i_target == NULL)
         return -1;
