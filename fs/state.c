@@ -1,12 +1,12 @@
 #include "state.h"
 #include "betterassert.h"
 
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
 /*
  * Persistent FS state
  * (in reality, it should be maintained in secondary memory;
@@ -206,8 +206,8 @@ int inode_create(inode_type i_type) {
     insert_delay(); // simulate storage access delay (to inode)
 
     inode->i_node_type = i_type;
-    //Initialize mutex
-    if (pthread_mutex_init(&inode->i_mutex, NULL) != 0 ) {
+    // Initialize mutex
+    if (pthread_mutex_init(&inode->i_mutex, NULL) != 0) {
         return -1;
     }
     switch (i_type) {
@@ -283,7 +283,7 @@ inode_t *inode_get(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber), "inode_get: invalid inumber");
 
     insert_delay(); // simulate storage access delay to inode
-    
+
     return &inode_table[inumber];
 }
 
@@ -295,7 +295,7 @@ inode_t *inode_get(int inumber) {
  *
  * Returns 0 if successful, -1 otherwise.
  */
-int inode_lock(inode_t *inode) {
+int inode_lock(inode_t *inode) { 
     return pthread_mutex_lock(&inode->i_mutex);
 }
 
@@ -403,7 +403,7 @@ int add_dir_entry(inode_t *inode, char const *sub_name, int sub_inumber) {
  *   - Directory does not contain a file named sub_name.
  *   - Failed to lock or unlock directory's inode.
  */
-int find_in_dir(inode_t const *inode, char const *sub_name) {
+int find_in_dir(inode_t *inode, char const *sub_name) {
     ALWAYS_ASSERT(inode != NULL, "find_in_dir: inode must be non-NULL");
     ALWAYS_ASSERT(sub_name != NULL, "find_in_dir: sub_name must be non-NULL");
 
@@ -416,8 +416,6 @@ int find_in_dir(inode_t const *inode, char const *sub_name) {
     dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(inode->i_data_block);
     ALWAYS_ASSERT(dir_entry != NULL,
                   "find_in_dir: directory inode must have a data block");
-    ALWAYS_ASSERT(inode_unlock(inode) == 0,
-                  "find_in_dir: failed to unlock inode");
     // Iterates over the directory entries looking for one that has the target
     // name
     for (int i = 0; i < MAX_DIR_ENTRIES; i++)
@@ -427,6 +425,8 @@ int find_in_dir(inode_t const *inode, char const *sub_name) {
             int sub_inumber = dir_entry[i].d_inumber;
             return sub_inumber;
         }
+    ALWAYS_ASSERT(inode_unlock(inode) == 0,
+                  "find_in_dir: failed to unlock inode");
 
     return -1; // entry not found
 }
