@@ -82,7 +82,12 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
     ALWAYS_ASSERT(root_dir_inode != NULL,
                   "tfs_open: root dir inode must exist");
+
+    ALWAYS_ASSERT(inode_lock(root_dir_inode) == 0,
+                  "tfs_open: failed to lock root dir inode");
     int inum = tfs_lookup(name, root_dir_inode);
+    ALWAYS_ASSERT(inode_unlock(root_dir_inode) == 0,
+                  "tfs_open: failed to unlock root dir inode");
     size_t offset;
 
     if (inum >= 0) {
@@ -90,7 +95,7 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         inode_t *inode = inode_get(inum);
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
-
+        
         // Truncate (if requested)
         if (mode & TFS_O_TRUNC) {
             if (inode->i_size > 0) {

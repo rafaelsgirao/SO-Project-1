@@ -194,6 +194,7 @@ static int inode_alloc(void) {
  * Possible errors:
  *   - No free slots in inode table.
  *   - (if creating a directory) No free data blocks.
+ *   - Failed to initialize inode mutex (TODO: rwlock)
  */
 int inode_create(inode_type i_type) {
     int inumber = inode_alloc();
@@ -205,6 +206,10 @@ int inode_create(inode_type i_type) {
     insert_delay(); // simulate storage access delay (to inode)
 
     inode->i_node_type = i_type;
+    //Initialize mutex
+    if (pthread_mutex_init(&inode->i_mutex, NULL) != 0 ) {
+        return -1;
+    }
     switch (i_type) {
     case T_DIRECTORY: {
         // Initializes directory (filling its block with empty entries, labeled
@@ -278,7 +283,32 @@ inode_t *inode_get(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber), "inode_get: invalid inumber");
 
     insert_delay(); // simulate storage access delay to inode
+    
     return &inode_table[inumber];
+}
+
+/**
+ * Locks an inode's mutex (TODO: should be a rwlock but testing for now)
+ *
+ * Input:
+ *   - inode: inode to lock
+ *
+ * Returns 0 if successful, -1 otherwise.
+ */
+int inode_lock(inode_t *inode) {
+    return pthread_mutex_lock(&inode->i_mutex);
+}
+
+/**
+ * Unlocks an inode's mutex (TODO: should be a rwlock but testing for now)
+ *
+ * Input:
+ *   - inode: inode to unlock
+ *
+ * Returns 0 if successful, -1 otherwise.
+ */
+int inode_unlock(inode_t *inode) {
+    return pthread_mutex_unlock(&inode->i_mutex);
 }
 
 /**
@@ -371,21 +401,23 @@ int add_dir_entry(inode_t *inode, char const *sub_name, int sub_inumber) {
  * Possible errors:
  *   - inode is not a directory inode.
  *   - Directory does not contain a file named sub_name.
+ *   - Failed to lock or unlock directory's inode.
  */
 int find_in_dir(inode_t const *inode, char const *sub_name) {
     ALWAYS_ASSERT(inode != NULL, "find_in_dir: inode must be non-NULL");
     ALWAYS_ASSERT(sub_name != NULL, "find_in_dir: sub_name must be non-NULL");
 
     insert_delay(); // simulate storage access delay to inode with inumber
+    ALWAYS_ASSERT(inode_lock(inode) == 0, "find_in_dir: failed to lock inode");
     if (inode->i_node_type != T_DIRECTORY) {
         return -1; // not a directory
     }
-
     // Locates the block containing the entries of the directory
     dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(inode->i_data_block);
     ALWAYS_ASSERT(dir_entry != NULL,
                   "find_in_dir: directory inode must have a data block");
-
+    ALWAYS_ASSERT(inode_unlock(inode) == 0,
+                  "find_in_dir: failed to unlock inode");
     // Iterates over the directory entries looking for one that has the target
     // name
     for (int i = 0; i < MAX_DIR_ENTRIES; i++)

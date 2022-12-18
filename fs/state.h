@@ -27,6 +27,8 @@ typedef struct {
 
     size_t i_size;
     int i_data_block;
+  //  pthread_rwlock_t i_rwlock;
+    pthread_mutex_t i_mutex;
 
     // in a more complete FS, more fields could exist here
 } inode_t;
@@ -39,6 +41,7 @@ typedef enum { FREE = 0, TAKEN = 1 } allocation_state_t;
 typedef struct {
     int of_inumber;
     size_t of_offset;
+//    pthread_mutex_t mlock; FIXME: check where this gets created
 } open_file_entry_t;
 
 int state_init(tfs_params);
@@ -47,6 +50,8 @@ int state_destroy(void);
 size_t state_block_size(void);
 
 int inode_create(inode_type n_type);
+int inode_lock(inode_t *inode);
+int inode_unlock(inode_t *inode);
 void inode_delete(int inumber);
 inode_t *inode_get(int inumber);
 
