@@ -145,7 +145,7 @@ int tfs_sym_link(char const *target, char const *link_name) {
         return -1;
 
     inode_t *iroot = inode_get(ROOT_DIR_INUM);
-    ALWAYS_ASSERT(iroot != NULL, "tfs_link: failed to find root dir inode");
+    ALWAYS_ASSERT(iroot != NULL, "tfs_sym_link: failed to find root dir inode");
 
     int i_target_num = tfs_lookup(target, iroot);
     if (i_target_num == -1)
@@ -288,7 +288,10 @@ int tfs_unlink(char const *target) {
 
     const char *target_sub = target + 1;
 
-    int i_target_num = tfs_lookup(target, inode_get(ROOT_DIR_INUM));
+    inode_t *iroot = inode_get(ROOT_DIR_INUM);
+    ALWAYS_ASSERT(iroot != NULL, "tfs_unlink: failed to find root dir inode");
+
+    int i_target_num = tfs_lookup(target, iroot);
     if (i_target_num == -1)
         return -1;
 
