@@ -112,7 +112,7 @@ int state_init(tfs_params params) {
     free_open_file_entries =
         malloc(MAX_OPEN_FILES * sizeof(allocation_state_t));
    // malloc(MAX_OPEN_FILES * sizeof(allocation_state_t)); TODO 
-    mutex_init(&free_open_file_entries_lock);
+    init_mutex(&free_open_file_entries_lock);
     if (!inode_table || !freeinode_ts || !fs_data || !free_blocks ||
         !open_file_table || !free_open_file_entries) {
         return -1; // allocation failed

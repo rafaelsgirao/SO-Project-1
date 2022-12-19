@@ -10,7 +10,8 @@
 #include "betterassert.h"
 
 //FIXME: isto ainda não é usado!
-pthread_mutex_t tfs_open_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t tfs_open_lock;
+//TODO: o que acontece se eu quiser fazer state_destroy a esta variável?
 
 tfs_params tfs_default_params() {
     tfs_params params = {
@@ -39,6 +40,7 @@ int tfs_init(tfs_params const *params_ptr) {
     if (root != ROOT_DIR_INUM) {
         return -1;
     }
+    init_mutex(&tfs_open_lock);
 
     return 0;
 }
@@ -47,6 +49,7 @@ int tfs_destroy() {
     if (state_destroy() != 0) {
         return -1;
     }
+    destroy_mutex(&tfs_open_lock);
     return 0;
 }
 
@@ -89,11 +92,13 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
     ALWAYS_ASSERT(root_dir_inode != NULL,
                   "tfs_open: root dir inode must exist");
 
+    lock_mutex(&tfs_open_lock);
     int inum = tfs_lookup(name, root_dir_inode);
     size_t offset;
 
     if (inum >= 0) {
         // The file already exists
+        unlock_mutex(&tfs_open_lock);
         inode_t *inode = inode_get(inum);
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
@@ -124,17 +129,22 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         // Create inode
         inum = inode_create(T_FILE);
         if (inum == -1) {
+            unlock_mutex(&tfs_open_lock);
             return -1; // no space in inode table
         }
 
         // Add entry in the root directory
         if (add_dir_entry(root_dir_inode, name + 1, inum) == -1) {
             inode_delete(inum);
+            unlock_mutex(&tfs_open_lock);  
             return -1; // no space in directory
         }
+        unlock_mutex(&tfs_open_lock);
 
         offset = 0;
-    } else {
+    }
+    else {
+        unlock_mutex(&tfs_open_lock);
         return -1;
     }
 
