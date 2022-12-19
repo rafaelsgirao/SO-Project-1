@@ -1,16 +1,16 @@
 #include "fs/operations.h"
 #include <assert.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 
 #define THREAD_COUNT 3
 
-void *thread_copy_from_external_file(void *);
-void *thread_read(void *);
-void *thread_write(void *);
+void *thread_copy_from_external_file();
+void *thread_read();
+void *thread_write();
 
 int main() {
     assert(tfs_init(NULL) != -1);
@@ -55,7 +55,7 @@ int main() {
     return 0;
 }
 
-void *thread_copy_from_external_file(void * ) {
+void *thread_copy_from_external_file() {
     char *path_copied_file = "/file";
     char *path_src = "tests/file_to_copy.txt";
 
@@ -67,7 +67,7 @@ void *thread_copy_from_external_file(void * ) {
     return 0;
 }
 
-void *thread_write(void * ) {
+void *thread_write() {
     char *str_ext_file = "BBB!";
     char *path_copied_file = "/file";
     char buffer[40];
@@ -85,7 +85,7 @@ void *thread_write(void * ) {
     return 0;
 }
 
-void *thread_read(void * ) {
+void *thread_read() {
     char *str_ext_file = "BBB!";
     char *path_copied_file = "/file";
     char buffer[40];
