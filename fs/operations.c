@@ -61,6 +61,7 @@ static bool valid_pathname(char const *name) {
  *   - root_inode: the root directory inode
  * Returns the inumber of the file, -1 if unsuccessful.
  */
+//TODO: meter aqui um rdlock?
 static int tfs_lookup(char const *name, const inode_t *root_inode) {
     // TODO: assert that root_inode is the root directory
     if (!valid_pathname(name)) {
@@ -69,7 +70,6 @@ static int tfs_lookup(char const *name, const inode_t *root_inode) {
 
     // skip the initial '/' character
     name++;
-
     return find_in_dir(root_inode, name);
 }
 
@@ -78,23 +78,24 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
     if (!valid_pathname(name)) {
         return -1;
     }
-
+    rwlock_rdlock(&inode_rwlocks_table[ROOT_DIR_INUM]);
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
+
     ALWAYS_ASSERT(root_dir_inode != NULL,
                   "tfs_open: root dir inode must exist");
 
-    //ALWAYS_ASSERT(inode_lock(root_dir_inode) == 0,
-    //              "tfs_open: failed to lock root dir inode");
     int inum = tfs_lookup(name, root_dir_inode);
-    //ALWAYS_ASSERT(inode_unlock(root_dir_inode) == 0,
-   //               "tfs_open: failed to unlock root dir inode");
+    rwlock_unlock(&inode_rwlocks_table[ROOT_DIR_INUM]);
     size_t offset;
+
+    rwlock_wrlock(&inode_rwlocks_table[inum]);
 
     if (inum >= 0) {
         // The file already exists
         inode_t *inode = inode_get(inum);
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
+
 
         // Truncate (if requested)
         if (mode & TFS_O_TRUNC) {
@@ -114,20 +115,25 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         // Create inode
         inum = inode_create(T_FILE);
         if (inum == -1) {
+            rwlock_unlock(&inode_rwlocks_table[inum]);
             return -1; // no space in inode table
+
         }
 
         // Add entry in the root directory
         if (add_dir_entry(root_dir_inode, name + 1, inum) == -1) {
             inode_delete(inum);
+            rwlock_unlock(&inode_rwlocks_table[inum]);
             return -1; // no space in directory
         }
 
         offset = 0;
     } else {
+        rwlock_unlock(&inode_rwlocks_table[inum]);
         return -1;
     }
 
+    rwlock_unlock(&inode_rwlocks_table[inum]);
     // Finally, add entry to the open file table and return the corresponding
     // handle
     return add_to_open_file_table(inum, offset);
@@ -175,7 +181,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
     //  From the open file table entry, we get the inode
     inode_t *inode = inode_get(file->of_inumber);
     ALWAYS_ASSERT(inode != NULL, "tfs_write: inode of open file deleted");
-    ALWAYS_ASSERT(inode_lock(inode) == 0, "tfs_write: failed to lock inode");
+    rwlock_wrlock(&inode_rwlocks_table[file->of_inumber]);
 
     // Determine how many bytes to write
     size_t block_size = state_block_size();
@@ -188,6 +194,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             // If empty file, allocate new block
             int bnum = data_block_alloc();
             if (bnum == -1) {
+                rwlock_unlock(&inode_rwlocks_table[file->of_inumber]);
                 return -1; // no space
             }
 
@@ -206,7 +213,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             inode->i_size = file->of_offset;
         }
     }
-    ALWAYS_ASSERT(inode_unlock(inode) == 0, "tfs_write: failed to unlock inode");
+    rwlock_unlock(&inode_rwlocks_table[file->of_inumber]);
 
     return (ssize_t)to_write;
 }
@@ -220,7 +227,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
     // From the open file table entry, we get the inode
     inode_t const *inode = inode_get(file->of_inumber);
     ALWAYS_ASSERT(inode != NULL, "tfs_read: inode of open file deleted");
-    ALWAYS_ASSERT(inode_lock(inode) == 0, "tfs_read: failed to lock inode");
+    rwlock_rdlock(&inode_rwlocks_table[file->of_inumber]);
     // Determine how many bytes to read
     size_t to_read = inode->i_size - file->of_offset;
     if (to_read > len) {
@@ -236,7 +243,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
         // The offset associated with the file handle is incremented accordingly
         file->of_offset += to_read;
     }
-    ALWAYS_ASSERT(inode_unlock(inode) == 0, "tfs_read: failed to unlock inode");
+    rwlock_unlock(&inode_rwlocks_table[file->of_inumber]);
 
     return (ssize_t)to_read;
 }
