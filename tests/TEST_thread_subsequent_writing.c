@@ -9,23 +9,27 @@
 
 #define FILE_SUBJECT "/file"
 #define BUFFER_SIZE 500
-#define THREAD_COUNT 5
+#define THREAD_COUNT 3
+#define DEBUG 1
 
 void *first_read();
 void *last_read();
 void *thread_write();
 
 uint8_t const MESSAGE[] = "Lorem ipsum dolor sit amet.";
+uint8_t const FINAL_MESSAGE[] =
+    "Lorem ipsum dolor sit amet.Lorem ipsum dolor sit amet.Lorem ipsum dolor "
+    "sit amet.Lorem ipsum dolor sit amet.Lorem ipsum dolor sit amet.";
 
 // This test asserts that multiple threads
 int main() {
     assert(tfs_init(NULL) != -1);
 
     pthread_t writers[THREAD_COUNT];
-    pthread_t reader;
+    pthread_t first_reader, last_reader;
 
-    assert(pthread_create(&reader, NULL, first_read, NULL) == 0);
-    assert(pthread_join(reader, NULL) == 0);
+    assert(pthread_create(&first_reader, NULL, first_read, NULL) == 0);
+    assert(pthread_join(first_reader, NULL) == 0);
 
     for (int i = 0; i < THREAD_COUNT; i++) {
         assert(pthread_create(&writers[i], NULL, thread_write, NULL) == 0);
@@ -35,9 +39,8 @@ int main() {
         assert(pthread_join(writers[i], NULL) == 0);
     }
 
-    // second thread will read the file
-    assert(pthread_create(&reader, NULL, last_read, NULL) == 0);
-    assert(pthread_join(reader, NULL) == 0);
+    assert(pthread_create(&last_reader, NULL, last_read, NULL) == 0);
+    assert(pthread_join(last_reader, NULL) == 0);
 
     // destroy TécnicoFS
     assert(tfs_destroy() != -1);
@@ -60,13 +63,17 @@ void *first_read() {
 
 // reads the message from the file
 void *last_read() {
-    uint8_t buffer[sizeof(MESSAGE)];
+    uint8_t buffer[sizeof(FINAL_MESSAGE)];
 
     int fhandle = tfs_open(FILE_SUBJECT, TFS_O_CREAT);
     assert(fhandle != -1);
 
     assert(tfs_read(fhandle, buffer, sizeof(buffer)) == sizeof(buffer));
-    assert(memcmp(buffer, MESSAGE, sizeof(buffer)) == 0);
+
+    if (DEBUG)
+        printf("\nBUFFER: %s\n", buffer);
+
+    assert(memcmp(buffer, FINAL_MESSAGE, sizeof(buffer)) == 0);
     assert(tfs_close(fhandle) == 0);
 
     return NULL;
@@ -74,10 +81,22 @@ void *last_read() {
 
 // writes the message in the file
 void *thread_write() {
-    int fhandle = tfs_open(FILE_SUBJECT, TFS_O_CREAT);
+    int fhandle = tfs_open(FILE_SUBJECT, TFS_O_APPEND);
+    uint8_t buffer[sizeof(FINAL_MESSAGE)];
+
     assert(fhandle != -1);
 
     assert(tfs_write(fhandle, MESSAGE, sizeof(MESSAGE)) == sizeof(MESSAGE));
+
+    assert(tfs_close(fhandle) == 0);
+
+    fhandle = tfs_open(FILE_SUBJECT, TFS_O_APPEND);
+
+    tfs_read(fhandle, buffer, sizeof(buffer));
+
+    if (DEBUG)
+        printf("BUFFER-WRITE: %s\n", buffer);
+
     assert(tfs_close(fhandle) == 0);
 
     return NULL;
