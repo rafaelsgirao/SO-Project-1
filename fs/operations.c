@@ -61,7 +61,7 @@ static bool valid_pathname(char const *name) {
  *   - root_inode: the root directory inode
  * Returns the inumber of the file, -1 if unsuccessful.
  */
-static int tfs_lookup(char const *name, inode_t *root_inode) {
+static int tfs_lookup(char const *name, const inode_t *root_inode) {
     // TODO: assert that root_inode is the root directory
     if (!valid_pathname(name)) {
         return -1;
@@ -83,11 +83,11 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
     ALWAYS_ASSERT(root_dir_inode != NULL,
                   "tfs_open: root dir inode must exist");
 
-    ALWAYS_ASSERT(inode_lock(root_dir_inode) == 0,
-                  "tfs_open: failed to lock root dir inode");
+    //ALWAYS_ASSERT(inode_lock(root_dir_inode) == 0,
+    //              "tfs_open: failed to lock root dir inode");
     int inum = tfs_lookup(name, root_dir_inode);
-    ALWAYS_ASSERT(inode_unlock(root_dir_inode) == 0,
-                  "tfs_open: failed to unlock root dir inode");
+    //ALWAYS_ASSERT(inode_unlock(root_dir_inode) == 0,
+   //               "tfs_open: failed to unlock root dir inode");
     size_t offset;
 
     if (inum >= 0) {
@@ -218,7 +218,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
     }
 
     // From the open file table entry, we get the inode
-    inode_t *inode = inode_get(file->of_inumber);
+    inode_t const *inode = inode_get(file->of_inumber);
     ALWAYS_ASSERT(inode != NULL, "tfs_read: inode of open file deleted");
     ALWAYS_ASSERT(inode_lock(inode) == 0, "tfs_read: failed to lock inode");
     // Determine how many bytes to read

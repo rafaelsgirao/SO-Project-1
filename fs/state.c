@@ -16,6 +16,7 @@ static tfs_params fs_params;
 
 // Inode table
 static inode_t *inode_table;
+static pthread_rwlock_t *inode_rwlocks_table;
 static allocation_state_t *freeinode_ts;
 
 // Data blocks
@@ -100,6 +101,7 @@ int state_init(tfs_params params) {
     }
 
     inode_table = malloc(INODE_TABLE_SIZE * sizeof(inode_t));
+    inode_rwlocks_table = malloc(INODE_TABLE_SIZE * sizeof(pthread_rwlock_t));
     freeinode_ts = malloc(INODE_TABLE_SIZE * sizeof(allocation_state_t));
     fs_data = malloc(DATA_BLOCKS * BLOCK_SIZE);
     free_blocks = malloc(DATA_BLOCKS * sizeof(allocation_state_t));
@@ -119,7 +121,15 @@ int state_init(tfs_params params) {
     for (size_t i = 0; i < DATA_BLOCKS; i++) {
         free_blocks[i] = FREE;
     }
-
+    //Init open file table mutexes
+    /*
+    for (size_t i = 0; i < MAX_OPEN_FILES; i++) {
+        mutex_init(&open_file_table[i].of_mutex);
+    }*/
+    //Init inode table rwlocks
+    for (size_t i = 0; i < INODE_TABLE_SIZE; i++) {
+        rwlock_init(&inode_rwlocks_table[i]);
+    }
     for (size_t i = 0; i < MAX_OPEN_FILES; i++) {
         free_open_file_entries[i] = FREE;
     }
@@ -133,6 +143,14 @@ int state_init(tfs_params params) {
  * Returns 0 if succesful, -1 otherwise.
  */
 int state_destroy(void) {
+    //Destroy mutexes in open file table
+    for (size_t i = 0; i < MAX_OPEN_FILES; i++) {
+        mutex_destroy(&open_file_table[i].of_mutex);
+    }
+    //Destroy rwlocks in inode table
+    for (size_t i = 0; i < INODE_TABLE_SIZE; i++) {
+        rwlock_destroy(&inode_rwlocks_table[i]);
+    }
     free(inode_table);
     free(freeinode_ts);
     free(fs_data);
@@ -206,10 +224,8 @@ int inode_create(inode_type i_type) {
     insert_delay(); // simulate storage access delay (to inode)
 
     inode->i_node_type = i_type;
-    // Initialize mutex
-    if (pthread_mutex_init(&inode->i_mutex, NULL) != 0) {
-        return -1;
-    }
+    // Initialize rwlock
+    rwlock_init(&inode->i_rwlock);
     switch (i_type) {
     case T_DIRECTORY: {
         // Initializes directory (filling its block with empty entries, labeled
@@ -267,6 +283,8 @@ void inode_delete(int inumber) {
     if (inode_table[inumber].i_size > 0) {
         data_block_free(inode_table[inumber].i_data_block);
     }
+    //Destroy rwlock
+    rwlock_destroy(&inode_table[inumber].i_rwlock);
 
     freeinode_ts[inumber] = FREE;
 }
@@ -285,30 +303,6 @@ inode_t *inode_get(int inumber) {
     insert_delay(); // simulate storage access delay to inode
 
     return &inode_table[inumber];
-}
-
-/**
- * Locks an inode's mutex (TODO: should be a rwlock but testing for now)
- *
- * Input:
- *   - inode: inode to lock
- *
- * Returns 0 if successful, -1 otherwise.
- */
-int inode_lock(inode_t *inode) { 
-    return pthread_mutex_lock(&inode->i_mutex);
-}
-
-/**
- * Unlocks an inode's mutex (TODO: should be a rwlock but testing for now)
- *
- * Input:
- *   - inode: inode to unlock
- *
- * Returns 0 if successful, -1 otherwise.
- */
-int inode_unlock(inode_t *inode) {
-    return pthread_mutex_unlock(&inode->i_mutex);
 }
 
 /**
@@ -546,4 +540,44 @@ open_file_entry_t *get_open_file_entry(int fhandle) {
     }
 
     return &open_file_table[fhandle];
+}
+
+
+/**
+ * Locks a mutex
+ *
+ * Input:
+ *   - mutex: mutex to lcok
+ */
+void mutex_lock(pthread_mutex_t *mutex) { 
+    ALWAYS_ASSERT(pthread_mutex_lock(mutex) == 0, "mutex_lock: failed to lock mutex");
+}
+
+void mutex_init(pthread_mutex_t *mutex) {
+    ALWAYS_ASSERT(pthread_mutex_init(mutex, NULL) == 0, "mutex_init: failed to init mutex");
+}
+
+void mutex_destroy(pthread_mutex_t *mutex) {
+    ALWAYS_ASSERT(pthread_mutex_destroy(mutex) == 0, "mutex_destroy: failed to destroy mutex");
+}
+/**
+ * Unlocks a mutex.
+ *
+ * Input:
+ *   - mutex: mutex to unlock
+ */
+void mutex_unlock(pthread_mutex_t *mutex) {
+    ALWAYS_ASSERT(pthread_mutex_unlock(mutex) == 0, "mutex_unlock: failed to unlock mutex");
+}
+
+void rwlock_rdlock(pthread_rwlock_t *rwlock) {
+    ALWAYS_ASSERT(pthread_rwlock_rdlock(rwlock) == 0, "rwlock_rwdlock: failed to lock rwlock");
+}
+
+void rwlock_wrlock(pthread_rwlock_t *rwlock) {
+    ALWAYS_ASSERT(pthread_rwlock_wrlock(rwlock) == 0, "rwlock_wrlock: failed to lock rwlock");
+}
+
+void rwlock_init(pthread_rwlock_t *rwlock) {
+    ALWAYS_ASSERT(pthread_rwlock_init(rwlock, NULL) == 0, "rwlock_init: failed to init rwlock");
 }
