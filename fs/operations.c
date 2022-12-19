@@ -78,14 +78,19 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
     if (!valid_pathname(name)) {
         return -1;
     }
-    rwlock_rdlock(&inode_rwlocks_table[ROOT_DIR_INUM]);
+
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
+    //Get size of inode_rwlocks_table
+    //size_t size = sizeof(inode_rwlocks_table) / sizeof(inode_rwlocks_table[0]);
+    printf("%p\n", inode_rwlocks_table);
 
     ALWAYS_ASSERT(root_dir_inode != NULL,
                   "tfs_open: root dir inode must exist");
 
+    rwlock_rdlock(&inode_rwlocks_table[0]);
+
     int inum = tfs_lookup(name, root_dir_inode);
-    rwlock_unlock(&inode_rwlocks_table[ROOT_DIR_INUM]);
+    rwlock_unlock(&inode_rwlocks_table[0]);
     size_t offset;
 
     rwlock_wrlock(&inode_rwlocks_table[inum]);
