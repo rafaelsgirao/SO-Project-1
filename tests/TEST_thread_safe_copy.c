@@ -64,6 +64,8 @@ void *thread_copy_from_external_file() {
     f = tfs_copy_from_external_fs(path_src, path_copied_file);
     assert(f != -1);
 
+    assert(tfs_close(f) == 0);
+
     return 0;
 }
 
@@ -81,6 +83,8 @@ void *thread_write() {
     r = tfs_read(f, buffer, sizeof(buffer) - 1);
     assert(r == strlen(str_ext_file));
     assert(!memcmp(buffer, str_ext_file, strlen(str_ext_file)));
+
+    assert(tfs_close(f) == 0);
 
     return 0;
 }
@@ -100,6 +104,8 @@ void *thread_read() {
     r = tfs_read(f, buffer, sizeof(buffer) - 1);
     assert(r == strlen(str_ext_file));
     assert(!memcmp(buffer, str_ext_file, strlen(str_ext_file)));
+
+    assert(tfs_close(f) == 0);
 
     return 0;
 }
