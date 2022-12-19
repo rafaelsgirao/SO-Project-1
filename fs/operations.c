@@ -61,7 +61,7 @@ static bool valid_pathname(char const *name) {
  *   - root_inode: the root directory inode
  * Returns the inumber of the file, -1 if unsuccessful.
  */
-//TODO: meter aqui um rdlock?
+// TODO: meter aqui um rdlock?
 static int tfs_lookup(char const *name, const inode_t *root_inode) {
     // TODO: assert that root_inode is the root directory
     if (!valid_pathname(name)) {
@@ -96,7 +96,6 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
 
-
         // Truncate (if requested)
         if (mode & TFS_O_TRUNC) {
             if (inode->i_size > 0) {
@@ -117,7 +116,6 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         if (inum == -1) {
             rwlock_unlock(&inode_rwlocks_table[inum]);
             return -1; // no space in inode table
-
         }
 
         // Add entry in the root directory

@@ -21,7 +21,7 @@ typedef enum { T_FILE, T_DIRECTORY } inode_type;
 
 /*
  *    Locks
-*/
+ */
 static pthread_rwlock_t *inode_rwlocks_table;
 /**
  * Inode
@@ -82,7 +82,5 @@ void rwlock_rdlock(pthread_rwlock_t *rwlock);
 void rwlock_wrlock(pthread_rwlock_t *rwlock);
 
 void rwlock_unlock(pthread_rwlock_t *rwlock);
-
-
 
 #endif // STATE_H
