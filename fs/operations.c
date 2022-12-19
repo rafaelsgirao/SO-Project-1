@@ -5,8 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "betterassert.h"
+
+//FIXME: isto ainda não é usado!
+pthread_mutex_t tfs_open_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 tfs_params tfs_default_params() {
     tfs_params params = {
@@ -173,7 +177,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
     //  From the open file table entry, we get the inode
     inode_t *inode = inode_get(file->of_inumber);
     ALWAYS_ASSERT(inode != NULL, "tfs_write: inode of open file deleted");
-    lock_inode_wr(file->of_inumber);
+    lock_wr_inode(file->of_inumber);
 
     // Determine how many bytes to write
     size_t block_size = state_block_size();
@@ -221,7 +225,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
     inode_t const *inode = inode_get(file->of_inumber);
     ALWAYS_ASSERT(inode != NULL, "tfs_read: inode of open file deleted");
     //rwlock_rdlock(&inode_rwlocks_table[file->of_inumber]);
-    lock_inode_rd(file->of_inumber);
+    lock_rd_inode(file->of_inumber);
     // Determine how many bytes to read
     size_t to_read = inode->i_size - file->of_offset;
     if (to_read > len) {

@@ -266,7 +266,7 @@ int inode_create(inode_type i_type) {
     default:
         PANIC("inode_create: unknown file type");
     }
-
+    rwlock_unlock(&inode_rwlocks_table[inumber]);
     return inumber;
 }
 
@@ -336,6 +336,7 @@ int clear_dir_entry(inode_t *inode, char const *sub_name) {
     for (size_t i = 0; i < MAX_DIR_ENTRIES; i++) {
         if (!strcmp(dir_entry[i].d_name, sub_name)) {
             dir_entry[i].d_inumber = -1;
+            // TODO lock and unluck
             memset(dir_entry[i].d_name, 0, MAX_FILE_NAME);
             return 0;
         }
@@ -590,47 +591,74 @@ void rwlock_destroy(pthread_rwlock_t *rwlock) {
 
 void rwlock_rdlock(pthread_rwlock_t *rwlock) {
     ALWAYS_ASSERT(pthread_rwlock_rdlock(rwlock) == 0,
-                  "rwlock_rwdlock: failed to lock rwlock");
+                  "rwlock_rdlock: failed to read-lock rwlock");
 }
 
 void rwlock_wrlock(pthread_rwlock_t *rwlock) {
-    ALWAYS_ASSERT(pthread_rwlock_wrlock(rwlock) == 0,
-                  "rwlock_wrlock: failed to lock rwlock");
+    int teste = pthread_rwlock_wrlock(rwlock);
+  //  printf("rwlock_wrlock: %d\n", teste);
+    ALWAYS_ASSERT(teste == 0,
+                  "rwlock_wrlock: failed to write-lock rwlock");
 }
 
 void rwlock_unlock(pthread_rwlock_t *rwlock) {
-    ALWAYS_ASSERT(pthread_rwlock_unlock(rwlock) == 0,
+    int teste = pthread_rwlock_unlock(rwlock);
+    //printf("rwlock_unlock: %d\n", teste);
+    ALWAYS_ASSERT(teste == 0,
                   "rwlock_unlock: failed to unlock rwlock");
 }
 
-void lockwr_inode(int inumber) {
-    ALWAYS_ASSERT(valid_inode_number(inumber),
+void lock_wr_inode(int inumber) {
+    ALWAYS_ASSERT(valid_inumber(inumber),
                   "lock_inode: invalid inode number");
-
+  // FIXME retirar  printf("ptr-> %p\n", &inode_rwlocks_table[inumber]);
     rwlock_wrlock(&inode_rwlocks_table[inumber]);
 }
 
 void lock_rd_inode(int inumber) {
-    ALWAYS_ASSERT(valid_inode_number(inumber),
+    ALWAYS_ASSERT(valid_inumber(inumber),
                   "lock_inode: invalid inode number");
-
-    rwlock_rd(&inode_rwlocks_table[inumber]);
+   //FIXME retirar printf("inumber = %d\n", inumber);
+  //FIXME retirar  printf("ptr-> %p\n", &inode_rwlocks_table[inumber]);
+    rwlock_rdlock(&inode_rwlocks_table[inumber]);
 }
+
 void unlock_inode(int inumber) {
-    ALWAYS_ASSERT(valid_inode_number(inumber),
+    ALWAYS_ASSERT(valid_inumber(inumber),
                   "unlock_inode: invalid inode number");
 
-    mutex_unlock(&inode_rwlocks_table[inumber]);
+     rwlock_unlock(&inode_rwlocks_table[inumber]);
 }
 
-void lock_inode_wr(int inumber);
-void lock_inode_rd(int inumber);
-void unlock_inode(int inumber);
+void lock_dir_entry(const inode_t *inode, const char *sub_name) {
+    insert_delay();
 
-void init_dir_entry_lock(const inode_t *inode, const char *sub_name);
-void lock_dir_entry(const inode_t *inode, const char *sub_name);
-void unlock_dir_entry(const inode_t *inode, const char *sub_name);
+    dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(inode->i_data_block);
+    for (size_t i = 0; i < MAX_DIR_ENTRIES; i++) {
+        if (!strcmp(dir_entry[i].d_name, sub_name)) {
+            mutex_lock(&open_file_locks_table[i]);
+            return;
+        }
+    }
+}
 
-void init_open_file_lock(int inumber);
-void open_file_lock(int inumber);
-void open_file_unlock(int inumber);
+void unlock_dir_entry(const inode_t *inode, const char *sub_name) {
+    insert_delay();
+
+    dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(inode->i_data_block);
+    for (size_t i = 0; i < MAX_DIR_ENTRIES; i++) {
+        if (!strcmp(dir_entry[i].d_name, sub_name)) {
+            mutex_unlock(&open_file_locks_table[i]);
+            return;
+        }
+    }
+    return;
+}
+
+void open_file_lock(int fhandle) {
+    mutex_lock(&open_file_locks_table[fhandle]);
+}
+
+void open_file_unlock(int fhandle) {
+    mutex_unlock(&open_file_locks_table[fhandle]);
+}

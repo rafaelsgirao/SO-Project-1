@@ -72,8 +72,8 @@ void rwlock_rdlock(pthread_rwlock_t *rwlock);
 void rwlock_wrlock(pthread_rwlock_t *rwlock);
 void rwlock_unlock(pthread_rwlock_t *rwlock);
 
-void lock_inode_wr(int inumber);
-void lock_inode_rd(int inumber);
+void lock_wr_inode(int inumber);
+void lock_rd_inode(int inumber);
 void unlock_inode(int inumber);
 
 void lock_dir_entry(const inode_t *inode, const char *sub_name);
