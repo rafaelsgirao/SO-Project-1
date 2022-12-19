@@ -602,3 +602,35 @@ void rwlock_unlock(pthread_rwlock_t *rwlock) {
     ALWAYS_ASSERT(pthread_rwlock_unlock(rwlock) == 0,
                   "rwlock_unlock: failed to unlock rwlock");
 }
+
+void lockwr_inode(int inumber) {
+    ALWAYS_ASSERT(valid_inode_number(inumber),
+                  "lock_inode: invalid inode number");
+
+    rwlock_wrlock(&inode_rwlocks_table[inumber]);
+}
+
+void lock_rd_inode(int inumber) {
+    ALWAYS_ASSERT(valid_inode_number(inumber),
+                  "lock_inode: invalid inode number");
+
+    rwlock_rd(&inode_rwlocks_table[inumber]);
+}
+void unlock_inode(int inumber) {
+    ALWAYS_ASSERT(valid_inode_number(inumber),
+                  "unlock_inode: invalid inode number");
+
+    mutex_unlock(&inode_rwlocks_table[inumber]);
+}
+
+void lock_inode_wr(int inumber);
+void lock_inode_rd(int inumber);
+void unlock_inode(int inumber);
+
+void init_dir_entry_lock(const inode_t *inode, const char *sub_name);
+void lock_dir_entry(const inode_t *inode, const char *sub_name);
+void unlock_dir_entry(const inode_t *inode, const char *sub_name);
+
+void init_open_file_lock(int inumber);
+void open_file_lock(int inumber);
+void open_file_unlock(int inumber);

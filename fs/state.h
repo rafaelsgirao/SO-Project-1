@@ -19,10 +19,6 @@ typedef struct {
 
 typedef enum { T_FILE, T_DIRECTORY } inode_type;
 
-/*
- *    Locks
- */
-static pthread_rwlock_t *inode_rwlocks_table;
 /**
  * Inode
  */
@@ -66,21 +62,24 @@ void remove_from_open_file_table(int fhandle);
 open_file_entry_t *get_open_file_entry(int fhandle);
 
 void mutex_init(pthread_mutex_t *mutex);
-
 void mutex_destroy(pthread_mutex_t *mutex);
-
 void mutex_lock(pthread_mutex_t *mutex);
-
 void mutex_unlock(pthread_mutex_t *mutex);
 
 void rwlock_init(pthread_rwlock_t *rwlock);
-
 void rwlock_destroy(pthread_rwlock_t *rwlock);
-
 void rwlock_rdlock(pthread_rwlock_t *rwlock);
-
 void rwlock_wrlock(pthread_rwlock_t *rwlock);
-
 void rwlock_unlock(pthread_rwlock_t *rwlock);
+
+void lock_inode_wr(int inumber);
+void lock_inode_rd(int inumber);
+void unlock_inode(int inumber);
+
+void lock_dir_entry(const inode_t *inode, const char *sub_name);
+void unlock_dir_entry(const inode_t *inode, const char *sub_name);
+
+void open_file_lock(int inumber);
+void open_file_unlock(int inumber);
 
 #endif // STATE_H
