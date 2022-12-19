@@ -67,16 +67,16 @@ int add_to_open_file_table(int inumber, size_t offset);
 void remove_from_open_file_table(int fhandle);
 open_file_entry_t *get_open_file_entry(int fhandle);
 
-void mutex_init(pthread_mutex_t *mutex);
-void mutex_destroy(pthread_mutex_t *mutex);
-void mutex_lock(pthread_mutex_t *mutex);
-void mutex_unlock(pthread_mutex_t *mutex);
+void init_mutex(pthread_mutex_t *mutex);
+void destroy_mutex(pthread_mutex_t *mutex);
+void lock_mutex(pthread_mutex_t *mutex);
+void unlock_mutex(pthread_mutex_t *mutex);
 
-void rwlock_init(pthread_rwlock_t *rwlock);
-void rwlock_destroy(pthread_rwlock_t *rwlock);
-void rwlock_rdlock(pthread_rwlock_t *rwlock);
-void rwlock_wrlock(pthread_rwlock_t *rwlock);
-void rwlock_unlock(pthread_rwlock_t *rwlock);
+void init_rwlock(pthread_rwlock_t *rwlock);
+void destroy_rwlock(pthread_rwlock_t *rwlock);
+void rdlock_rwlock(pthread_rwlock_t *rwlock);
+void wrlock_rwlock(pthread_rwlock_t *rwlock);
+void unlock_rwlock(pthread_rwlock_t *rwlock);
 
 void lock_wr_inode(int inumber);
 void lock_rd_inode(int inumber);

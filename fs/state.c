@@ -127,12 +127,12 @@ int state_init(tfs_params params) {
     }
     // Init open file locks table
     for (size_t i = 0; i < MAX_OPEN_FILES; i++) {
-        mutex_init(&open_file_locks_table[i]);
+        init_mutex(&open_file_locks_table[i]);
     }
 
     // Init inode table rwlocks
     for (size_t i = 0; i < INODE_TABLE_SIZE; i++) {
-        rwlock_init(&inode_rwlocks_table[i]);
+        init_rwlock(&inode_rwlocks_table[i]);
     }
     for (size_t i = 0; i < MAX_OPEN_FILES; i++) {
         free_open_file_entries[i] = FREE;
@@ -149,7 +149,7 @@ int state_init(tfs_params params) {
 int state_destroy(void) {
     // Destroy rwlocks in inode table
     for (size_t i = 0; i < INODE_TABLE_SIZE; i++) {
-        rwlock_destroy(&inode_rwlocks_table[i]);
+        destroy_rwlock(&inode_rwlocks_table[i]);
     }
     free(inode_rwlocks_table);
     free(inode_table);
@@ -159,11 +159,11 @@ int state_destroy(void) {
     free(open_file_table);
     // Destroy mutexes in open file locks table
     for (size_t i = 0; i < MAX_OPEN_FILES; i++) {
-        mutex_destroy(&open_file_locks_table[i]);
+        destroy_mutex(&open_file_locks_table[i]);
     }
     free(open_file_locks_table);
     free(free_open_file_entries);
-    mutex_destroy(&free_open_file_entries_lock);
+    destroy_mutex(&free_open_file_entries_lock);
 
     inode_table = NULL;
     freeinode_ts = NULL;
@@ -226,7 +226,7 @@ int inode_create(inode_type i_type) {
     if (inumber == -1) {
         return -1; // no free slots in inode table
     }
-    rwlock_wrlock(&inode_rwlocks_table[inumber]);
+    wrlock_rwlock(&inode_rwlocks_table[inumber]);
     inode_t *inode = &inode_table[inumber];
     insert_delay(); // simulate storage access delay (to inode)
 
@@ -269,7 +269,7 @@ int inode_create(inode_type i_type) {
     default:
         PANIC("inode_create: unknown file type");
     }
-    rwlock_unlock(&inode_rwlocks_table[inumber]);
+    unlock_rwlock(&inode_rwlocks_table[inumber]);
     return inumber;
 }
 
@@ -549,88 +549,76 @@ open_file_entry_t *get_open_file_entry(int fhandle) {
 }
 
 
-void mutex_init(pthread_mutex_t *mutex) {
+void init_mutex(pthread_mutex_t *mutex) {
     ALWAYS_ASSERT(pthread_mutex_init(mutex, NULL) == 0,
-                  "mutex_init: failed to init mutex");
+                  "init_mutex: failed to init mutex");
 }
 
-void mutex_destroy(pthread_mutex_t *mutex) {
+void destroy_mutex(pthread_mutex_t *mutex) {
     ALWAYS_ASSERT(pthread_mutex_destroy(mutex) == 0,
-                  "mutex_destroy: failed to destroy mutex");
+                  "destroy_mutex: failed to destroy mutex");
 }
 
-/**
- * Locks a mutex
- *
- * Input:
- *   - mutex: mutex to lcok
- */
-void mutex_lock(pthread_mutex_t *mutex) {
+void lock_mutex(pthread_mutex_t *mutex) {
     ALWAYS_ASSERT(pthread_mutex_lock(mutex) == 0,
-                  "mutex_lock: failed to lock mutex");
+                  "lock_mutex: failed to lock mutex");
 }
 
-/**
- * Unlocks a mutex.
- *
- * Input:
- *   - mutex: mutex to unlock
- */
-void mutex_unlock(pthread_mutex_t *mutex) {
+void unlock_mutex(pthread_mutex_t *mutex) {
     ALWAYS_ASSERT(pthread_mutex_unlock(mutex) == 0,
-                  "mutex_unlock: failed to unlock mutex");
+                  "unlock_mutex: failed to unlock mutex");
 }
 
 
-void rwlock_init(pthread_rwlock_t *rwlock) {
+void init_rwlock(pthread_rwlock_t *rwlock) {
     ALWAYS_ASSERT(pthread_rwlock_init(rwlock, NULL) == 0,
-                  "rwlock_init: failed to init rwlock");
+                  "init_rwlock: failed to init rwlock");
 }
 
-void rwlock_destroy(pthread_rwlock_t *rwlock) {
+void destroy_rwlock(pthread_rwlock_t *rwlock) {
     ALWAYS_ASSERT(pthread_rwlock_destroy(rwlock) == 0,
-                  "rwlock_destroy: failed to destroy rwlock");
+                  "destroy_rwlock: failed to destroy rwlock");
 }
 
-void rwlock_rdlock(pthread_rwlock_t *rwlock) {
+void rdlock_rwlock(pthread_rwlock_t *rwlock) {
     ALWAYS_ASSERT(pthread_rwlock_rdlock(rwlock) == 0,
-                  "rwlock_rdlock: failed to read-lock rwlock");
+                  "rdlock_rwlock: failed to read-lock rwlock");
 }
 
-void rwlock_wrlock(pthread_rwlock_t *rwlock) {
+void wrlock_rwlock(pthread_rwlock_t *rwlock) {
     int teste = pthread_rwlock_wrlock(rwlock);
   //  printf("rwlock_wrlock: %d\n", teste);
     ALWAYS_ASSERT(teste == 0,
-                  "rwlock_wrlock: failed to write-lock rwlock");
+                  "wrlock_rwlock: failed to write-lock rwlock");
 }
 
-void rwlock_unlock(pthread_rwlock_t *rwlock) {
+void unlock_rwlock(pthread_rwlock_t *rwlock) {
     int teste = pthread_rwlock_unlock(rwlock);
     //printf("rwlock_unlock: %d\n", teste);
     ALWAYS_ASSERT(teste == 0,
-                  "rwlock_unlock: failed to unlock rwlock");
+                  "unlock_rwlock: failed to unlock rwlock");
 }
 
 void lock_wr_inode(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber),
-                  "lock_inode: invalid inode number");
+                  "lock_wr_inode: invalid inode number");
   // FIXME retirar  printf("ptr-> %p\n", &inode_rwlocks_table[inumber]);
-    rwlock_wrlock(&inode_rwlocks_table[inumber]);
+    wrlock_rwlock(&inode_rwlocks_table[inumber]);
 }
 
 void lock_rd_inode(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber),
-                  "lock_inode: invalid inode number");
+                  "lock_rd_inode: invalid inode number");
    //FIXME retirar printf("inumber = %d\n", inumber);
   //FIXME retirar  printf("ptr-> %p\n", &inode_rwlocks_table[inumber]);
-    rwlock_rdlock(&inode_rwlocks_table[inumber]);
+    rdlock_rwlock(&inode_rwlocks_table[inumber]);
 }
 
 void unlock_inode(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber),
                   "unlock_inode: invalid inode number");
 
-     rwlock_unlock(&inode_rwlocks_table[inumber]);
+     unlock_rwlock(&inode_rwlocks_table[inumber]);
 }
 
 void lock_dir_entry(const inode_t *inode, const char *sub_name) {
@@ -639,7 +627,7 @@ void lock_dir_entry(const inode_t *inode, const char *sub_name) {
     dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(inode->i_data_block);
     for (size_t i = 0; i < MAX_DIR_ENTRIES; i++) {
         if (!strcmp(dir_entry[i].d_name, sub_name)) {
-            mutex_lock(&open_file_locks_table[i]);
+            lock_mutex(&open_file_locks_table[i]);
             return;
         }
     }
@@ -651,7 +639,7 @@ void unlock_dir_entry(const inode_t *inode, const char *sub_name) {
     dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(inode->i_data_block);
     for (size_t i = 0; i < MAX_DIR_ENTRIES; i++) {
         if (!strcmp(dir_entry[i].d_name, sub_name)) {
-            mutex_unlock(&open_file_locks_table[i]);
+            unlock_mutex(&open_file_locks_table[i]);
             return;
         }
     }
@@ -659,9 +647,9 @@ void unlock_dir_entry(const inode_t *inode, const char *sub_name) {
 }
 
 void open_file_lock(int fhandle) {
-    mutex_lock(&open_file_locks_table[fhandle]);
+    lock_mutex(&open_file_locks_table[fhandle]);
 }
 
 void open_file_unlock(int fhandle) {
-    mutex_unlock(&open_file_locks_table[fhandle]);
+    unlock_mutex(&open_file_locks_table[fhandle]);
 }
