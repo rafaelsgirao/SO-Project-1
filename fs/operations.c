@@ -98,6 +98,14 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
 
+        if (inode->i_node_type == T_SYM_LINK) {
+            // preventing infinite recursion
+            if (strcmp(inode->i_target_d_name, name) == 0)
+                return -1;
+
+            return tfs_open(inode->i_target_d_name, mode);
+        }
+
         // Truncate (if requested)
         if (mode & TFS_O_TRUNC) {
             if (inode->i_size > 0) {
@@ -140,21 +148,62 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
 }
 
 int tfs_sym_link(char const *target, char const *link_name) {
-    (void)target;
-    (void)link_name;
-    // ^ this is a trick to keep the compiler from complaining about unused
-    // variables. TODO: remove
+    if (!valid_pathname(link_name) || !valid_pathname(target))
+        return -1;
 
-    PANIC("TODO: tfs_sym_link");
+    inode_t *iroot = inode_get(ROOT_DIR_INUM);
+    ALWAYS_ASSERT(iroot != NULL, "tfs_sym_link: failed to find root dir inode");
+
+    int i_target_num = tfs_lookup(target, iroot);
+    if (i_target_num == -1)
+        return -1;
+
+    int i_link_number = inode_create(T_SYM_LINK);
+    if (i_link_number == -1)
+        return -1;
+
+    inode_t *i_link = inode_get(i_link_number);
+    if (i_link == NULL)
+        return -1;
+
+    // initializes link's inode
+    strcpy(i_link->i_target_d_name, target);
+
+    const char *link_sub = link_name + 1;
+    if (add_dir_entry(inode_get(ROOT_DIR_INUM), link_sub, i_link_number) == -1)
+        return -1;
+
+    return 0;
 }
 
 int tfs_link(char const *target, char const *link_name) {
-    (void)target;
-    (void)link_name;
-    // ^ this is a trick to keep the compiler from complaining about unused
-    // variables. TODO: remove
+    if (!valid_pathname(target) || !valid_pathname(link_name))
+        return -1;
 
-    PANIC("TODO: tfs_link");
+    // we must remove the '/' when adding to dir entry
+    const char *link_sub = link_name + 1;
+
+    inode_t *iroot = inode_get(ROOT_DIR_INUM);
+    ALWAYS_ASSERT(iroot != NULL, "tfs_link: failed to find root dir inode");
+
+    int target_inumber = tfs_lookup(target, iroot);
+    if (target_inumber == -1)
+        return -1;
+
+    inode_t *itarget = inode_get(target_inumber);
+    if (itarget == NULL)
+        return -1;
+
+    // cannot create links to symbolic links
+    if (itarget->i_node_type == T_SYM_LINK)
+        return -1;
+
+    if (add_dir_entry(iroot, link_sub, target_inumber) == -1)
+        return -1;
+
+    itarget->i_links++;
+
+    return 0;
 }
 
 int tfs_close(int fhandle) {
@@ -247,11 +296,31 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
 }
 
 int tfs_unlink(char const *target) {
-    (void)target;
-    // ^ this is a trick to keep the compiler from complaining about unused
-    // variables. TODO: remove
+    if (!valid_pathname(target))
+        return -1;
 
-    PANIC("TODO: tfs_unlink");
+    const char *target_sub = target + 1;
+
+    inode_t *iroot = inode_get(ROOT_DIR_INUM);
+    ALWAYS_ASSERT(iroot != NULL, "tfs_unlink: failed to find root dir inode");
+
+    int i_target_num = tfs_lookup(target, iroot);
+    if (i_target_num == -1)
+        return -1;
+
+    inode_t *i_target = inode_get(i_target_num);
+    if (i_target == NULL)
+        return -1;
+
+    if (i_target->i_links - 1 <= 0) {
+        inode_delete(i_target_num);
+    } else {
+        i_target->i_links--;
+    }
+
+    clear_dir_entry(inode_get(ROOT_DIR_INUM), target_sub);
+
+    return 0;
 }
 
 int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
@@ -265,7 +334,7 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     tfs_file_mode_t open_mode = TFS_O_CREAT | TFS_O_TRUNC;
     int dest = tfs_open(dest_path, open_mode);
     if (dest == -1) {
-        //Close external file
+        // Close external file
         fclose(source);
         return -1;
     }
@@ -278,7 +347,7 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
         tfs_write(dest, buffer, bytes_read);
         bytes_read = fread(buffer, 1, EXT_BUFFER, source);
     }
-    //Close files
+    // Close files
     tfs_close(dest);
     fclose(source);
 
