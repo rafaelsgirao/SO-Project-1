@@ -74,9 +74,6 @@ void unlock_mutex(pthread_mutex_t *mutex);
 
 void init_rwlock(pthread_rwlock_t *rwlock);
 void destroy_rwlock(pthread_rwlock_t *rwlock);
-void rdlock_rwlock(pthread_rwlock_t *rwlock);
-void wrlock_rwlock(pthread_rwlock_t *rwlock);
-void unlock_rwlock(pthread_rwlock_t *rwlock);
 
 void lock_wr_inode(int inumber);
 void lock_rd_inode(int inumber);

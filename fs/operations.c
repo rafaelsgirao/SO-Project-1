@@ -65,10 +65,9 @@ static bool valid_pathname(char const *name) {
  *
  * Input:
  *   - name: absolute path name
- *   - root_inode: the root directory inode
+ *   - root_inode: the root directory inode (should be read-locked)
  * Returns the inumber of the file, -1 if unsuccessful.
  */
-// TODO: meter aqui um rdlock?
 static int tfs_lookup(char const *name, const inode_t *root_inode) {
     ALWAYS_ASSERT(inode_get(ROOT_DIR_INUM) == root_inode,
                   "tfs_lookup: the root_inode is not the root directory.");
@@ -94,23 +93,28 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
                   "tfs_open: root dir inode must exist");
 
     lock_mutex(&tfs_open_lock);
-    lock_rd_inode(ROOT_DIR_INUM);
+    lock_wr_inode(ROOT_DIR_INUM);
     int inum = tfs_lookup(name, root_dir_inode);
-    unlock_inode(ROOT_DIR_INUM);
     size_t offset;
 
     if (inum >= 0) {
         // The file already exists
+        // Unlock mutex
         unlock_mutex(&tfs_open_lock);
+
         inode_t *inode = inode_get(inum);
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
-
+        lock_rd_inode(inum); //TODO: talvez trocar p/ bloqueio de leitura
         if (inode->i_node_type == T_SYM_LINK) {
             // preventing infinite recursion
-            if (strcmp(inode->i_target_d_name, name) == 0)
+            if (strcmp(inode->i_target_d_name, name) == 0) {
+                unlock_inode(inum);
+                unlock_inode(ROOT_DIR_INUM);
                 return -1;
-
+            }
+            unlock_inode(inum);
+            unlock_inode(ROOT_DIR_INUM);
             return tfs_open(inode->i_target_d_name, mode);
         }
 
@@ -124,32 +128,40 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         // Determine initial offset
         if (mode & TFS_O_APPEND) {
             offset = inode->i_size;
-        } else {
+        } 
+        else {
             offset = 0;
         }
-    } else if (mode & TFS_O_CREAT) {
+        unlock_inode(inum);
+    } 
+    else if (mode & TFS_O_CREAT) {
         // The file does not exist; the mode specified that it should be created
         // Create inode
         inum = inode_create(T_FILE);
         if (inum == -1) {
+            unlock_inode(ROOT_DIR_INUM);
             unlock_mutex(&tfs_open_lock);
             return -1; // no space in inode table
         }
-
+        lock_wr_inode(inum);
         // Add entry in the root directory
         if (add_dir_entry(root_dir_inode, name + 1, inum) == -1) {
             inode_delete(inum);
+            unlock_inode(inum);
+            unlock_inode(ROOT_DIR_INUM);
             unlock_mutex(&tfs_open_lock);
             return -1; // no space in directory
         }
-        unlock_mutex(&tfs_open_lock);
-
-        offset = 0;
-    } else {
+        unlock_inode(inum);
+        offset = 0; //TODO: este offset estava originalmente aqui?
+    }
+    else {
+        unlock_inode(ROOT_DIR_INUM);
         unlock_mutex(&tfs_open_lock);
         return -1;
     }
-
+    unlock_inode(ROOT_DIR_INUM);
+    unlock_mutex(&tfs_open_lock);
     // Finally, add entry to the open file table and return the corresponding
     // handle
     return add_to_open_file_table(inum, offset);
@@ -165,27 +177,45 @@ int tfs_sym_link(char const *target, char const *link_name) {
 
     inode_t *iroot = inode_get(ROOT_DIR_INUM);
     ALWAYS_ASSERT(iroot != NULL, "tfs_sym_link: failed to find root dir inode");
-
-    lock_rd_inode(ROOT_DIR_INUM);
+    // ver TODO mais abaixo
+    lock_wr_inode(ROOT_DIR_INUM);
     int i_target_num = tfs_lookup(target, iroot);
-    unlock_inode(ROOT_DIR_INUM);
-    if (i_target_num == -1)
+    if (i_target_num == -1) {
+        unlock_inode(ROOT_DIR_INUM);
         return -1;
+    }
 
     int i_link_number = inode_create(T_SYM_LINK);
-    if (i_link_number == -1)
+    if (i_link_number == -1) {
+        unlock_inode(ROOT_DIR_INUM);
         return -1;
+    }
 
     inode_t *i_link = inode_get(i_link_number);
-    if (i_link == NULL)
+    if (i_link == NULL) {
+        unlock_inode(ROOT_DIR_INUM);
         return -1;
-
+    }
+    // TODO: Isto tem que ser read-lock? Não poderá ser read-lock? confirmar
+    // antes de merge
+    // Se calhar nem faz sentido porque este inode é criado aqui...
+    // PS:Se tiver que existir, definitivamente tem que ser write-lock
+    // Porque em todos os casos em que é read-lock podemos (e devemos) meter o
+    // inode_t como const
+    lock_wr_inode(i_link_number);
     // initializes link's inode
     strcpy(i_link->i_target_d_name, target);
 
     const char *link_sub = link_name + 1;
-    if (add_dir_entry(inode_get(ROOT_DIR_INUM), link_sub, i_link_number) == -1)
+
+    if (add_dir_entry(iroot, link_sub, i_link_number) == -1) {
+        unlock_inode(i_link_number);
+        unlock_inode(ROOT_DIR_INUM);
         return -1;
+    }
+
+    unlock_inode(i_link_number);
+    unlock_inode(ROOT_DIR_INUM);
 
     return 0;
 }
@@ -199,25 +229,38 @@ int tfs_link(char const *target, char const *link_name) {
 
     inode_t *iroot = inode_get(ROOT_DIR_INUM);
     ALWAYS_ASSERT(iroot != NULL, "tfs_link: failed to find root dir inode");
-    lock_rd_inode(ROOT_DIR_INUM);
+    lock_wr_inode(ROOT_DIR_INUM);
     int target_inumber = tfs_lookup(target, iroot);
-    unlock_inode(ROOT_DIR_INUM);
-    if (target_inumber == -1)
+
+    if (target_inumber == -1) {
+        unlock_inode(ROOT_DIR_INUM);
         return -1;
+    }
 
     inode_t *itarget = inode_get(target_inumber);
-    if (itarget == NULL)
+    if (itarget == NULL) {
+        unlock_inode(ROOT_DIR_INUM);
         return -1;
-
+    }
+    lock_wr_inode(target_inumber);
     // cannot create links to symbolic links
-    if (itarget->i_node_type == T_SYM_LINK)
+    if (itarget->i_node_type == T_SYM_LINK) {
+        unlock_inode(target_inumber);
+        unlock_inode(ROOT_DIR_INUM);
         return -1;
+    }
 
-    if (add_dir_entry(iroot, link_sub, target_inumber) == -1)
+    // target_inumber nunca é usado para obter o respetivo inode (não é
+    // necessário lock)
+    if (add_dir_entry(iroot, link_sub, target_inumber) == -1) {
+        unlock_inode(target_inumber);
+        unlock_inode(ROOT_DIR_INUM);
         return -1;
+    }
 
     itarget->i_links++;
-
+    unlock_inode(target_inumber);
+    unlock_inode(ROOT_DIR_INUM);
     return 0;
 }
 
@@ -319,22 +362,28 @@ int tfs_unlink(char const *target) {
     ALWAYS_ASSERT(iroot != NULL, "tfs_unlink: failed to find root dir inode");
     lock_wr_inode(ROOT_DIR_INUM);
     int i_target_num = tfs_lookup(target, iroot);
-    unlock_inode(ROOT_DIR_INUM);
-    if (i_target_num == -1)
+
+    if (i_target_num == -1) {
+        unlock_inode(ROOT_DIR_INUM);
         return -1;
+    }
 
     inode_t *i_target = inode_get(i_target_num);
-    if (i_target == NULL)
+    if (i_target == NULL) {
+        unlock_inode(ROOT_DIR_INUM);
         return -1;
+    }
 
+    lock_wr_inode(i_target_num);
     if (i_target->i_links - 1 <= 0) {
         inode_delete(i_target_num);
     } else {
         i_target->i_links--;
     }
 
-    clear_dir_entry(inode_get(ROOT_DIR_INUM), target_sub);
-
+    clear_dir_entry(iroot, target_sub);
+    unlock_inode(ROOT_DIR_INUM);
+    unlock_inode(i_target_num);
     return 0;
 }
 
@@ -367,7 +416,6 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     if (tfs_close(dest) == -1) {
         return -1;
     }
-
 
     return 0;
 }
