@@ -9,6 +9,9 @@
 
 #include "betterassert.h"
 
+/**
+ * Locks the tfs_open function. (i.e. only one thread can access that method).
+ */
 static pthread_mutex_t tfs_open_lock;
 tfs_params tfs_default_params() {
     tfs_params params = {
@@ -96,14 +99,13 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
 
     if (inum >= 0) {
         // The file already exists
-        // Unlock mutex
 
         inode_t *inode = inode_get(inum);
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
-        lock_rd_inode(inum); // TODO: talvez trocar p/ bloqueio de leitura
+        lock_rd_inode(inum);
         if (inode->i_node_type == T_SYM_LINK) {
-            // preventing infinite recursion
+            // preventing infinite recursion (cannot open a file of same name)
             if (strcmp(inode->i_target_d_name, name) == 0) {
                 unlock_inode(inum);
                 unlock_inode(ROOT_DIR_INUM);
@@ -169,6 +171,11 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
 int tfs_sym_link(char const *target, char const *link_name) {
     if (!valid_pathname(link_name) || !valid_pathname(target))
         return -1;
+
+    // cannot link to itself
+    if (strcmp(target, link_name) == 0) {
+        return -1;
+    }
 
     inode_t *iroot = inode_get(ROOT_DIR_INUM);
     ALWAYS_ASSERT(iroot != NULL, "tfs_sym_link: failed to find root dir inode");
