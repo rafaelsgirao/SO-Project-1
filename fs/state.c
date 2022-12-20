@@ -16,9 +16,18 @@ static tfs_params fs_params;
 
 // Inode table
 static inode_t *inode_table;
-static pthread_rwlock_t *inode_rwlocks_table;
 static allocation_state_t *freeinode_ts;
+
+/**
+ * Stores the mutex lock to a free inode
+ */
 static pthread_mutex_t freeinode_ts_lock;
+
+/**
+ * Table that stores all read and write locks for inodes
+ */
+static pthread_rwlock_t *inode_rwlocks_table;
+
 // Data blocks
 static char *fs_data; // # blocks * block size
 static allocation_state_t *free_blocks;
@@ -28,8 +37,16 @@ static pthread_mutex_t free_blocks_lock;
  * Volatile FS state
  */
 static open_file_entry_t *open_file_table;
-static pthread_mutex_t *open_file_locks_table;
 static allocation_state_t *free_open_file_entries;
+
+/**
+ * Table that stores all mutex locks for open files
+ */
+static pthread_mutex_t *open_file_locks_table;
+
+/**
+ * Stores the mutex for free open file entries
+ */
 static pthread_mutex_t free_open_file_entries_lock;
 
 // Convenience macros
@@ -114,7 +131,6 @@ int state_init(tfs_params params) {
     open_file_locks_table = malloc(MAX_OPEN_FILES * sizeof(pthread_mutex_t));
     free_open_file_entries =
         malloc(MAX_OPEN_FILES * sizeof(allocation_state_t));
-    // malloc(MAX_OPEN_FILES * sizeof(allocation_state_t)); TODO
     init_mutex(&free_open_file_entries_lock);
     if (!inode_table || !freeinode_ts || !fs_data || !free_blocks ||
         !open_file_table || !free_open_file_entries) {
@@ -350,7 +366,6 @@ int clear_dir_entry(inode_t *inode, char const *sub_name) {
     for (size_t i = 0; i < MAX_DIR_ENTRIES; i++) {
         if (!strcmp(dir_entry[i].d_name, sub_name)) {
             dir_entry[i].d_inumber = -1;
-            // TODO lock and unluck
             memset(dir_entry[i].d_name, 0, MAX_FILE_NAME);
             return 0;
         }

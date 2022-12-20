@@ -151,7 +151,7 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
             return -1; // no space in directory
         }
         unlock_inode(inum);
-        offset = 0; // TODO: este offset estava originalmente aqui?
+        offset = 0;
     } else {
         unlock_inode(ROOT_DIR_INUM);
         unlock_mutex(&tfs_open_lock);
@@ -179,7 +179,6 @@ int tfs_sym_link(char const *target, char const *link_name) {
 
     inode_t *iroot = inode_get(ROOT_DIR_INUM);
     ALWAYS_ASSERT(iroot != NULL, "tfs_sym_link: failed to find root dir inode");
-    // ver TODO mais abaixo
     lock_wr_inode(ROOT_DIR_INUM);
     int i_target_num = tfs_lookup(target, iroot);
     if (i_target_num == -1) {
@@ -218,12 +217,6 @@ int tfs_sym_link(char const *target, char const *link_name) {
         unlock_inode(ROOT_DIR_INUM);
         return -1;
     }
-    // TODO: Isto tem que ser read-lock? Não poderá ser read-lock? confirmar
-    // antes de merge
-    // Se calhar nem faz sentido porque este inode é criado aqui...
-    // PS:Se tiver que existir, definitivamente tem que ser write-lock
-    // Porque em todos os casos em que é read-lock podemos (e devemos) meter o
-    // inode_t como const
     lock_wr_inode(i_link_number);
     // initializes link's inode
     strcpy(i_link->i_target_d_name, target);
@@ -272,8 +265,8 @@ int tfs_link(char const *target, char const *link_name) {
         return -1;
     }
 
-    // target_inumber nunca é usado para obter o respetivo inode (não é
-    // necessário lock)
+    // target_inumber is never used to obtain its inode (a lock is not
+    // necessary)
     if (add_dir_entry(iroot, link_sub, target_inumber) == -1) {
         unlock_inode(target_inumber);
         unlock_inode(ROOT_DIR_INUM);
