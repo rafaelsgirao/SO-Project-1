@@ -22,7 +22,6 @@ int main() {
 
     int f;
     ssize_t r;
-
     f = tfs_copy_from_external_fs(path_src, path_copied_file);
     assert(f != -1);
 
