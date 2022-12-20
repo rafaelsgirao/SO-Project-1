@@ -18,7 +18,7 @@ static tfs_params fs_params;
 static inode_t *inode_table;
 static pthread_rwlock_t *inode_rwlocks_table;
 static allocation_state_t *freeinode_ts;
-
+static pthread_mutex_t freeinode_ts_lock;
 // Data blocks
 static char *fs_data; // # blocks * block size
 static allocation_state_t *free_blocks;
@@ -105,6 +105,7 @@ int state_init(tfs_params params) {
     inode_table = malloc(INODE_TABLE_SIZE * sizeof(inode_t));
     inode_rwlocks_table = malloc(INODE_TABLE_SIZE * sizeof(pthread_rwlock_t));
     freeinode_ts = malloc(INODE_TABLE_SIZE * sizeof(allocation_state_t));
+    init_mutex(&freeinode_ts_lock);
     fs_data = malloc(DATA_BLOCKS * BLOCK_SIZE);
     free_blocks = malloc(DATA_BLOCKS * sizeof(allocation_state_t));
     open_file_table = malloc(MAX_OPEN_FILES * sizeof(open_file_entry_t));
@@ -154,6 +155,7 @@ int state_destroy(void) {
     free(inode_rwlocks_table);
     free(inode_table);
     free(freeinode_ts);
+    mutex_destroy(&freeinode_ts_lock);
     free(fs_data);
     free(free_blocks);
     free(open_file_table);
@@ -557,18 +559,19 @@ void init_mutex(pthread_mutex_t *mutex) {
 }
 
 void destroy_mutex(pthread_mutex_t *mutex) {
+    printf("destroy_mutex: destroying mutex\n");
     ALWAYS_ASSERT(pthread_mutex_destroy(mutex) == 0,
                   "destroy_mutex: failed to destroy mutex");
 }
 
 void lock_mutex(pthread_mutex_t *mutex) {
- //   printf("lock_mutex: locking mutex\n");
+    printf("lock_mutex: locking mutex\n");
     ALWAYS_ASSERT(pthread_mutex_lock(mutex) == 0,
                   "lock_mutex: failed to lock mutex");
 }
 
 void unlock_mutex(pthread_mutex_t *mutex) {
- //   printf("unlock_mutex: unlocking mutex\n");
+    printf("unlock_mutex: unlocking mutex\n");
     ALWAYS_ASSERT(pthread_mutex_unlock(mutex) == 0,
                   "unlock_mutex: failed to unlock mutex");
 }

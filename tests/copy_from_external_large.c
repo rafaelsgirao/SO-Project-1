@@ -22,11 +22,9 @@ int main() {
 
     int f;
     ssize_t r;
-    printf("Got here p1\n");
     f = tfs_copy_from_external_fs(path_src, path_copied_file);
     assert(f != -1);
 
-    printf("Got here p2\n");
     f = tfs_open(path_copied_file, TFS_O_CREAT);
     assert(f != -1);
 
