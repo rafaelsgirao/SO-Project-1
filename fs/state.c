@@ -155,7 +155,7 @@ int state_destroy(void) {
     free(inode_rwlocks_table);
     free(inode_table);
     free(freeinode_ts);
-    mutex_destroy(&freeinode_ts_lock);
+    destroy_mutex(&freeinode_ts_lock);
     free(fs_data);
     free(free_blocks);
     free(open_file_table);
@@ -296,7 +296,7 @@ void inode_delete(int inumber) {
     if (inode_table[inumber].i_size > 0) {
         data_block_free(inode_table[inumber].i_data_block);
     }
-    //TODO: BLOQUEAR ESTA TABELA!
+    // TODO: BLOQUEAR ESTA TABELA!
     freeinode_ts[inumber] = FREE;
 }
 
@@ -589,7 +589,7 @@ void destroy_rwlock(pthread_rwlock_t *rwlock) {
 void lock_wr_inode(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber),
                   "lock_wr_inode: invalid inode number");
- //   printf("lock_wr_inode: locking inode %d\n",    inumber);
+    //   printf("lock_wr_inode: locking inode %d\n",    inumber);
     ALWAYS_ASSERT(pthread_rwlock_wrlock(&inode_rwlocks_table[inumber]) == 0,
                   "lock_wr_inode: failed to lock inode");
 }
@@ -597,14 +597,14 @@ void lock_wr_inode(int inumber) {
 void lock_rd_inode(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber),
                   "lock_rd_inode: invalid inode number");
-  //  printf("lock_rd_inode: locking inode %d\n",     inumber);
+    //  printf("lock_rd_inode: locking inode %d\n",     inumber);
     ALWAYS_ASSERT(pthread_rwlock_rdlock(&inode_rwlocks_table[inumber]) == 0,
                   "lock_rd_inode: failed to lock inode");
 }
 
 void unlock_inode(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber), "unlock_inode: invalid inode number");
-  //  printf("unlock_inode: unlocking inode %d\n", inumber);
+    //  printf("unlock_inode: unlocking inode %d\n", inumber);
     ALWAYS_ASSERT(pthread_rwlock_unlock(&inode_rwlocks_table[inumber]) == 0,
                   "unlock_inode: failed to unlock inode");
 }

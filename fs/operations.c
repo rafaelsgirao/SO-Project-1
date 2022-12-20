@@ -9,7 +9,6 @@
 
 #include "betterassert.h"
 
-// FIXME: isto ainda não é usado!
 static pthread_mutex_t tfs_open_lock;
 // TODO: o que acontece se eu quiser fazer state_destroy a esta variável?
 
@@ -100,21 +99,22 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
     if (inum >= 0) {
         // The file already exists
         // Unlock mutex
-        unlock_mutex(&tfs_open_lock);
 
         inode_t *inode = inode_get(inum);
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
-        lock_rd_inode(inum); //TODO: talvez trocar p/ bloqueio de leitura
+        lock_rd_inode(inum); // TODO: talvez trocar p/ bloqueio de leitura
         if (inode->i_node_type == T_SYM_LINK) {
             // preventing infinite recursion
             if (strcmp(inode->i_target_d_name, name) == 0) {
                 unlock_inode(inum);
                 unlock_inode(ROOT_DIR_INUM);
+                unlock_mutex(&tfs_open_lock);
                 return -1;
             }
             unlock_inode(inum);
             unlock_inode(ROOT_DIR_INUM);
+            unlock_mutex(&tfs_open_lock);
             return tfs_open(inode->i_target_d_name, mode);
         }
 
@@ -128,13 +128,11 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         // Determine initial offset
         if (mode & TFS_O_APPEND) {
             offset = inode->i_size;
-        } 
-        else {
+        } else {
             offset = 0;
         }
         unlock_inode(inum);
-    } 
-    else if (mode & TFS_O_CREAT) {
+    } else if (mode & TFS_O_CREAT) {
         // The file does not exist; the mode specified that it should be created
         // Create inode
         inum = inode_create(T_FILE);
@@ -153,9 +151,8 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
             return -1; // no space in directory
         }
         unlock_inode(inum);
-        offset = 0; //TODO: este offset estava originalmente aqui?
-    }
-    else {
+        offset = 0; // TODO: este offset estava originalmente aqui?
+    } else {
         unlock_inode(ROOT_DIR_INUM);
         unlock_mutex(&tfs_open_lock);
         return -1;
