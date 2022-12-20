@@ -63,6 +63,11 @@ int main() {
 
     assert(tfs_unlink(SYM_LINK) == 0);
 
+    // every links were deleted, so it cannot unlink them again
+    assert(tfs_unlink(FILE_NAME) == -1);
+    assert(tfs_unlink(HARD_LINK) == -1);
+    assert(tfs_unlink(SYM_LINK) == -1);
+
     // destroy TécnicoFS
     assert(tfs_destroy() != -1);
     printf("Successful test.\n");
