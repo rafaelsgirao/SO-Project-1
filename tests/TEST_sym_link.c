@@ -12,6 +12,18 @@ const char FILE_CONTENT[] = "Hello!";
 const char SYM_LINK_1[] = "/sym_1";
 const char SYM_LINK_2[] = "/sym_2";
 
+void verify_content(const char file[]) {
+    int f = tfs_open(file, TFS_O_CREAT);
+    assert(f != -1);
+
+    char buffer[sizeof(FILE_CONTENT)];
+
+    assert(tfs_read(f, buffer, sizeof(FILE_CONTENT)) == sizeof(FILE_CONTENT));
+    assert(memcmp(buffer, FILE_CONTENT, sizeof(FILE_CONTENT)) == 0);
+
+    assert(tfs_close(f) == 0);
+}
+
 // This test asserts that multiple threads
 int main() {
     assert(tfs_init(NULL) != -1);
@@ -48,27 +60,9 @@ int main() {
     // creates a symbolic link to the other symbolic link
     assert(tfs_sym_link(SYM_LINK_1, SYM_LINK_2) == 0);
 
-    char buffer_sym_1[sizeof(FILE_CONTENT)];
-    char buffer_sym_2[sizeof(FILE_CONTENT)];
-
     // confirms that the file content can be reached from both sym links
-    fhandle = tfs_open(SYM_LINK_1, TFS_O_CREAT);
-    assert(fhandle != -1);
-
-    assert(tfs_read(fhandle, buffer_sym_1, sizeof(FILE_CONTENT)) ==
-           sizeof(FILE_CONTENT));
-    assert(memcmp(buffer_sym_1, FILE_CONTENT, sizeof(FILE_CONTENT)) == 0);
-
-    assert(tfs_close(fhandle) == 0);
-
-    fhandle = tfs_open(SYM_LINK_2, TFS_O_CREAT);
-    assert(fhandle != -1);
-
-    assert(tfs_read(fhandle, buffer_sym_2, sizeof(FILE_CONTENT)) ==
-           sizeof(FILE_CONTENT));
-    assert(memcmp(buffer_sym_2, FILE_CONTENT, sizeof(FILE_CONTENT)) == 0);
-
-    assert(tfs_close(fhandle) == 0);
+    verify_content(SYM_LINK_1);
+    verify_content(SYM_LINK_2);
 
     // now we'll unlink the file and try to make a circular link
     assert(tfs_unlink(FILE_NAME) == 0);
