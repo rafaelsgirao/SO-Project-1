@@ -30,12 +30,17 @@ int main() {
     assert(memcmp(buffer, FILE_CONTENT, strlen(FILE_CONTENT)) == 0);
     assert(tfs_close(fhandle) != -1);
 
+    char buffer2[sizeof(FILE_CONTENT)];
+
     // reinsert the content from the buffer
     fhandle = tfs_open(INTERNAL_FILE, TFS_O_TRUNC);
     assert(tfs_write(fhandle, buffer, sizeof(buffer)) == sizeof(buffer));
 
-    assert(tfs_read(fhandle, buffer, sizeof(FILE_CONTENT)) ==
-           sizeof(FILE_CONTENT) - 1);
+    ssize_t len = tfs_read(fhandle, buffer2, sizeof(FILE_CONTENT));
+    printf("Buffer: %s\nlen: %ld, size: %lu\n", buffer2, len,
+           sizeof(FILE_CONTENT));
+    // assert(tfs_read(fhandle, buffer2, sizeof(FILE_CONTENT)) ==
+    //        sizeof(FILE_CONTENT));
 
     // verifies if the contents are the same
     assert(memcmp(buffer, FILE_CONTENT, strlen(FILE_CONTENT)) == 0);

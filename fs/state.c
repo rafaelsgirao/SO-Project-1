@@ -575,7 +575,7 @@ void init_mutex(pthread_mutex_t *mutex) {
  * Asserts that the operation was successfully achieved
  */
 void destroy_mutex(pthread_mutex_t *mutex) {
-    printf("destroy_mutex: destroying mutex\n");
+    // printf("destroy_mutex: destroying mutex\n");
     ALWAYS_ASSERT(pthread_mutex_destroy(mutex) == 0,
                   "destroy_mutex: failed to destroy mutex");
 }
@@ -589,7 +589,7 @@ void destroy_mutex(pthread_mutex_t *mutex) {
  * Asserts that the operation was successfully achieved
  */
 void lock_mutex(pthread_mutex_t *mutex) {
-    printf("lock_mutex: locking mutex\n");
+    // printf("lock_mutex: locking mutex\n");
     ALWAYS_ASSERT(pthread_mutex_lock(mutex) == 0,
                   "lock_mutex: failed to lock mutex");
 }
@@ -603,7 +603,7 @@ void lock_mutex(pthread_mutex_t *mutex) {
  * Asserts that the operation was successfully achieved
  */
 void unlock_mutex(pthread_mutex_t *mutex) {
-    printf("unlock_mutex: unlocking mutex\n");
+    // printf("unlock_mutex: unlocking mutex\n");
     ALWAYS_ASSERT(pthread_mutex_unlock(mutex) == 0,
                   "unlock_mutex: failed to unlock mutex");
 }
