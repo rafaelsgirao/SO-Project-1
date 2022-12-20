@@ -553,39 +553,95 @@ open_file_entry_t *get_open_file_entry(int fhandle) {
     return &open_file_table[fhandle];
 }
 
+/**
+ * Initializes a mutex
+ *
+ * Input:
+ *  - mutex: mutex to be initialized
+ *
+ * Asserts that the operation was successfully achieved
+ */
 void init_mutex(pthread_mutex_t *mutex) {
     ALWAYS_ASSERT(pthread_mutex_init(mutex, NULL) == 0,
                   "init_mutex: failed to init mutex");
 }
 
+/**
+ * Destroys a mutex
+ *
+ * Input:
+ *  - mutex: mutex to be destroyed
+ *
+ * Asserts that the operation was successfully achieved
+ */
 void destroy_mutex(pthread_mutex_t *mutex) {
     printf("destroy_mutex: destroying mutex\n");
     ALWAYS_ASSERT(pthread_mutex_destroy(mutex) == 0,
                   "destroy_mutex: failed to destroy mutex");
 }
 
+/**
+ * Locks a mutex
+ *
+ * Input:
+ *  - mutex: mutex to be locked
+ *
+ * Asserts that the operation was successfully achieved
+ */
 void lock_mutex(pthread_mutex_t *mutex) {
     printf("lock_mutex: locking mutex\n");
     ALWAYS_ASSERT(pthread_mutex_lock(mutex) == 0,
                   "lock_mutex: failed to lock mutex");
 }
 
+/**
+ * Unlock a mutex
+ *
+ * Input:
+ *  - mutex: mutex to be unlocked
+ *
+ * Asserts that the operation was successfully achieved
+ */
 void unlock_mutex(pthread_mutex_t *mutex) {
     printf("unlock_mutex: unlocking mutex\n");
     ALWAYS_ASSERT(pthread_mutex_unlock(mutex) == 0,
                   "unlock_mutex: failed to unlock mutex");
 }
 
+/**
+ * Initializes a read and write lock (rwlock)
+ *
+ * Input:
+ *  - rwlock: rwlock to be initialized
+ *
+ * Asserts that the operation was successfully achieved
+ */
 void init_rwlock(pthread_rwlock_t *rwlock) {
     ALWAYS_ASSERT(pthread_rwlock_init(rwlock, NULL) == 0,
                   "init_rwlock: failed to init rwlock");
 }
 
+/**
+ * Destroys a read and write lock (rwlock)
+ *
+ * Input:
+ *  - rwlock: rwlock to be destroyed
+ *
+ * Asserts that the operation was successfully achieved
+ */
 void destroy_rwlock(pthread_rwlock_t *rwlock) {
     ALWAYS_ASSERT(pthread_rwlock_destroy(rwlock) == 0,
                   "destroy_rwlock: failed to destroy rwlock");
 }
 
+/**
+ * Locks a read and write lock (rwlock) only for WRITING
+ *
+ * Input:
+ *  - rwlock: rwlock to be locked
+ *
+ * Asserts that the operation was successfully achieved
+ */
 void lock_wr_inode(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber),
                   "lock_wr_inode: invalid inode number");
@@ -594,6 +650,14 @@ void lock_wr_inode(int inumber) {
                   "lock_wr_inode: failed to lock inode");
 }
 
+/**
+ * Locks a read and write lock (rwlock) only for READING
+ *
+ * Input:
+ *  - rwlock: rwlock to be locked
+ *
+ * Asserts that the operation was successfully achieved
+ */
 void lock_rd_inode(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber),
                   "lock_rd_inode: invalid inode number");
@@ -602,6 +666,14 @@ void lock_rd_inode(int inumber) {
                   "lock_rd_inode: failed to lock inode");
 }
 
+/**
+ * Unlocks a read and write lock both for READING and WRITING
+ *
+ * Input:
+ *  - rwlock: rwlock to be unlocked
+ *
+ * Asserts that the operation was successfully achieved
+ */
 void unlock_inode(int inumber) {
     ALWAYS_ASSERT(valid_inumber(inumber), "unlock_inode: invalid inode number");
     //  printf("unlock_inode: unlocking inode %d\n", inumber);
