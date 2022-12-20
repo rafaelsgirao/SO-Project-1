@@ -16,10 +16,8 @@ void *first_read();
 void *last_read();
 void *thread_write();
 
-uint8_t const MESSAGE[] = "Lorem ipsum dolor sit amet.";
-uint8_t const FINAL_MESSAGE[] =
-    "Lorem ipsum dolor sit amet.Lorem ipsum dolor sit amet.Lorem ipsum dolor "
-    "sit amet.Lorem ipsum dolor sit amet.Lorem ipsum dolor sit amet.";
+uint8_t const MESSAGE[] = "A";
+uint8_t const FINAL_MESSAGE[] = "AAA";
 
 // This test asserts that multiple threads
 int main() {
@@ -68,7 +66,9 @@ void *last_read() {
     int fhandle = tfs_open(FILE_SUBJECT, TFS_O_CREAT);
     assert(fhandle != -1);
 
-    assert(tfs_read(fhandle, buffer, sizeof(buffer)) == sizeof(buffer));
+    ssize_t len = tfs_read(fhandle, buffer, sizeof(buffer));
+    printf("buffer: %s\n", buffer);
+    assert(len == sizeof(buffer));
 
     if (DEBUG)
         printf("\nBUFFER: %s\n", buffer);
@@ -81,18 +81,19 @@ void *last_read() {
 
 // writes the message in the file
 void *thread_write() {
-    int fhandle = tfs_open(FILE_SUBJECT, TFS_O_APPEND);
-    uint8_t buffer[sizeof(FINAL_MESSAGE)];
 
+    int fhandle = tfs_open(FILE_SUBJECT, TFS_O_APPEND);
     assert(fhandle != -1);
+
+    uint8_t buffer[sizeof(MESSAGE)];
 
     assert(tfs_write(fhandle, MESSAGE, sizeof(MESSAGE)) == sizeof(MESSAGE));
 
     assert(tfs_close(fhandle) == 0);
 
-    fhandle = tfs_open(FILE_SUBJECT, TFS_O_APPEND);
+    fhandle = tfs_open(FILE_SUBJECT, TFS_O_CREAT);
 
-    tfs_read(fhandle, buffer, sizeof(buffer));
+    assert(tfs_read(fhandle, buffer, sizeof(buffer)) == sizeof(buffer));
 
     if (DEBUG)
         printf("BUFFER-WRITE: %s\n", buffer);
