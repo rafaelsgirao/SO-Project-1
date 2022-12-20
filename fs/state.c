@@ -28,9 +28,9 @@ static pthread_mutex_t free_blocks_lock;
  * Volatile FS state
  */
 static open_file_entry_t *open_file_table;
-static pthread_mutex_t *open_file_locks_table; //TODO do me
+static pthread_mutex_t *open_file_locks_table;
 static allocation_state_t *free_open_file_entries;
-static pthread_mutex_t free_open_file_entries_lock; 
+static pthread_mutex_t free_open_file_entries_lock;
 
 // Convenience macros
 #define INODE_TABLE_SIZE (fs_params.max_inode_count)
@@ -128,6 +128,7 @@ int state_init(tfs_params params) {
     for (size_t i = 0; i < DATA_BLOCKS; i++) {
         free_blocks[i] = FREE;
     }
+
     // Init open file locks table
     for (size_t i = 0; i < MAX_OPEN_FILES; i++) {
         init_mutex(&open_file_locks_table[i]);
@@ -137,6 +138,7 @@ int state_init(tfs_params params) {
     for (size_t i = 0; i < INODE_TABLE_SIZE; i++) {
         init_rwlock(&inode_rwlocks_table[i]);
     }
+
     for (size_t i = 0; i < MAX_OPEN_FILES; i++) {
         free_open_file_entries[i] = FREE;
     }
@@ -389,7 +391,6 @@ int add_dir_entry(inode_t *inode, char const *sub_name, int sub_inumber) {
     // Finds and fills the first empty entry
     for (size_t i = 0; i < MAX_DIR_ENTRIES; i++) {
         if (dir_entry[i].d_inumber == -1) {
-            // TODO: bloquear dir entry aqui!
             dir_entry[i].d_inumber = sub_inumber;
             strncpy(dir_entry[i].d_name, sub_name, MAX_FILE_NAME - 1);
             dir_entry[i].d_name[MAX_FILE_NAME - 1] = '\0';
@@ -475,7 +476,7 @@ int data_block_alloc(void) {
 void data_block_free(int block_number) {
     ALWAYS_ASSERT(valid_block_number(block_number),
                   "data_block_free: invalid block number");
-        lock_mutex(&free_blocks_lock);
+    lock_mutex(&free_blocks_lock);
 
     insert_delay(); // simulate storage access delay to free_blocks
 
@@ -695,35 +696,34 @@ void unlock_inode(int inumber) {
                   "unlock_inode: failed to unlock inode");
 }
 
-void lock_dir_entry(const inode_t *inode, const char *sub_name) {
-    insert_delay();
-
-    dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(inode->i_data_block);
-    for (size_t i = 0; i < MAX_DIR_ENTRIES; i++) {
-        if (!strcmp(dir_entry[i].d_name, sub_name)) {
-            lock_mutex(&open_file_locks_table[i]);
-            return;
-        }
-    }
-}
-
-void unlock_dir_entry(const inode_t *inode, const char *sub_name) {
-    insert_delay();
-
-    dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(inode->i_data_block);
-    for (size_t i = 0; i < MAX_DIR_ENTRIES; i++) {
-        if (!strcmp(dir_entry[i].d_name, sub_name)) {
-            unlock_mutex(&open_file_locks_table[i]);
-            return;
-        }
-    }
-    return;
-}
-
+/**
+ * Locks an open file
+ *
+ * Input:
+ *  - fhandle: file to be locked
+ *
+ * Asserts that the operation was successfully achieved and that the file handle
+ * is valid
+ */
 void open_file_lock(int fhandle) {
+    ALWAYS_ASSERT(valid_file_handle(fhandle),
+                  "open_file_lock: invalid file handle");
+
     lock_mutex(&open_file_locks_table[fhandle]);
 }
 
+/**
+ * Unlocks an open file
+ *
+ * Input:
+ *  - fhandle: file to be unlocked
+ *
+ * Asserts that the operation was successfully achieved and that the file handle
+ * is valid
+ */
 void open_file_unlock(int fhandle) {
+    ALWAYS_ASSERT(valid_file_handle(fhandle),
+                  "open_file_unlock: invalid file handle");
+
     unlock_mutex(&open_file_locks_table[fhandle]);
 }

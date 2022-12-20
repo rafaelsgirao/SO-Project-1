@@ -82,7 +82,7 @@ void unlock_inode(int inumber);
 void lock_dir_entry(const inode_t *inode, const char *sub_name);
 void unlock_dir_entry(const inode_t *inode, const char *sub_name);
 
-void open_file_lock(int inumber);
-void open_file_unlock(int inumber);
+void open_file_lock(int fhandle);
+void open_file_unlock(int fhandle);
 
 #endif // STATE_H
