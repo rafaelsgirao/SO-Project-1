@@ -180,6 +180,26 @@ int tfs_sym_link(char const *target, char const *link_name) {
         return -1;
     }
 
+    // verifies if it creates an infinite recursion
+    inode_t *current = inode_get(i_target_num);
+    if (current->i_node_type == T_SYM_LINK) {
+        const char *path_names[BUFSIZ] = {target, link_name};
+        int i = 2;
+        while (current != NULL && current->i_node_type == T_SYM_LINK) {
+            for (int j = 0; j < i; j++) {
+                // if the current points to a before mentioned path name
+                // it means that is a circular link
+                if (strcmp(current->i_target_d_name, path_names[j]) == 0) {
+                    unlock_inode(ROOT_DIR_INUM);
+                    return -1;
+                }
+            }
+            path_names[i] = current->i_target_d_name;
+            int next = tfs_lookup(current->i_target_d_name, iroot);
+            current = inode_get(next);
+        }
+    }
+
     int i_link_number = inode_create(T_SYM_LINK);
     if (i_link_number == -1) {
         unlock_inode(ROOT_DIR_INUM);
