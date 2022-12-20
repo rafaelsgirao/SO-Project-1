@@ -28,9 +28,9 @@ static pthread_mutex_t free_blocks_lock;
  * Volatile FS state
  */
 static open_file_entry_t *open_file_table;
-static pthread_mutex_t *open_file_locks_table;
+static pthread_mutex_t *open_file_locks_table; //TODO do me
 static allocation_state_t *free_open_file_entries;
-static pthread_mutex_t free_open_file_entries_lock;
+static pthread_mutex_t free_open_file_entries_lock; 
 
 // Convenience macros
 #define INODE_TABLE_SIZE (fs_params.max_inode_count)

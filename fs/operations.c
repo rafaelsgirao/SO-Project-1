@@ -10,8 +10,6 @@
 #include "betterassert.h"
 
 static pthread_mutex_t tfs_open_lock;
-// TODO: o que acontece se eu quiser fazer state_destroy a esta variável?
-
 tfs_params tfs_default_params() {
     tfs_params params = {
         .max_inode_count = 64,
