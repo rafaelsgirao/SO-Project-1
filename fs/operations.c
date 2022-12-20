@@ -94,7 +94,9 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
                   "tfs_open: root dir inode must exist");
 
     lock_mutex(&tfs_open_lock);
+    lock_rd_inode(ROOT_DIR_INUM);
     int inum = tfs_lookup(name, root_dir_inode);
+    unlock_inode(ROOT_DIR_INUM);
     size_t offset;
 
     if (inum >= 0) {
@@ -164,7 +166,9 @@ int tfs_sym_link(char const *target, char const *link_name) {
     inode_t *iroot = inode_get(ROOT_DIR_INUM);
     ALWAYS_ASSERT(iroot != NULL, "tfs_sym_link: failed to find root dir inode");
 
+    lock_rd_inode(ROOT_DIR_INUM);
     int i_target_num = tfs_lookup(target, iroot);
+    unlock_inode(ROOT_DIR_INUM);
     if (i_target_num == -1)
         return -1;
 
@@ -195,8 +199,9 @@ int tfs_link(char const *target, char const *link_name) {
 
     inode_t *iroot = inode_get(ROOT_DIR_INUM);
     ALWAYS_ASSERT(iroot != NULL, "tfs_link: failed to find root dir inode");
-
+    lock_rd_inode(ROOT_DIR_INUM);
     int target_inumber = tfs_lookup(target, iroot);
+    unlock_inode(ROOT_DIR_INUM);
     if (target_inumber == -1)
         return -1;
 
@@ -268,7 +273,6 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             inode->i_size = file->of_offset;
         }
     }
-    // rwlock_unlock(&inode_rwlocks_table[file->of_inumber]);
     unlock_inode(file->of_inumber);
 
     return (ssize_t)to_write;
@@ -283,7 +287,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
     // From the open file table entry, we get the inode
     inode_t const *inode = inode_get(file->of_inumber);
     ALWAYS_ASSERT(inode != NULL, "tfs_read: inode of open file deleted");
-    // rwlock_rdlock(&inode_rwlocks_table[file->of_inumber]);
+
     lock_rd_inode(file->of_inumber);
     // Determine how many bytes to read
     size_t to_read = inode->i_size - file->of_offset;
@@ -313,8 +317,9 @@ int tfs_unlink(char const *target) {
 
     inode_t *iroot = inode_get(ROOT_DIR_INUM);
     ALWAYS_ASSERT(iroot != NULL, "tfs_unlink: failed to find root dir inode");
-
+    lock_wr_inode(ROOT_DIR_INUM);
     int i_target_num = tfs_lookup(target, iroot);
+    unlock_inode(ROOT_DIR_INUM);
     if (i_target_num == -1)
         return -1;
 
@@ -358,8 +363,11 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
         bytes_read = fread(buffer, 1, EXT_BUFFER, source);
     }
     // Close files
-    tfs_close(dest);
     fclose(source);
+    if (tfs_close(dest) == -1) {
+        return -1;
+    }
+
 
     return 0;
 }

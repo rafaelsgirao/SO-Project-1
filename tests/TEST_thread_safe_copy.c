@@ -64,8 +64,6 @@ void *thread_copy_from_external_file() {
     f = tfs_copy_from_external_fs(path_src, path_copied_file);
     assert(f != -1);
 
-    assert(tfs_close(f) == 0);
-
     return 0;
 }
 

@@ -219,7 +219,7 @@ static int inode_alloc(void) {
  * Possible errors:
  *   - No free slots in inode table.
  *   - (if creating a directory) No free data blocks.
- *   - Failed to initialize inode mutex (TODO: rwlock)
+ *   - Failed to initialize inode rwlock.
  */
 int inode_create(inode_type i_type) {
     int inumber = inode_alloc();
@@ -269,7 +269,7 @@ int inode_create(inode_type i_type) {
     default:
         PANIC("inode_create: unknown file type");
     }
-    unlock_rwlock(&inode_rwlocks_table[inumber]);
+    unlock_inode(inumber);
     return inumber;
 }
 
@@ -419,7 +419,7 @@ int find_in_dir(const inode_t *inode, char const *sub_name) {
     ALWAYS_ASSERT(dir_entry != NULL,
                   "find_in_dir: directory inode must have a data block");
     // Iterates over the directory entries looking for one that has the target
-    // name
+    
     for (int i = 0; i < MAX_DIR_ENTRIES; i++)
         if ((dir_entry[i].d_inumber != -1) &&
             (strncmp(dir_entry[i].d_name, sub_name, MAX_FILE_NAME) == 0)) {
