@@ -512,16 +512,17 @@ void *data_block_get(int block_number) {
  *   - No space in open file table for a new open file.
  */
 int add_to_open_file_table(int inumber, size_t offset) {
+    lock_mutex(&free_open_file_entries_lock);
     for (int i = 0; i < MAX_OPEN_FILES; i++) {
         if (free_open_file_entries[i] == FREE) {
             free_open_file_entries[i] = TAKEN;
             open_file_table[i].of_inumber = inumber;
             open_file_table[i].of_offset = offset;
-
+            unlock_mutex(&free_open_file_entries_lock);
             return i;
         }
     }
-
+    unlock_mutex(&free_open_file_entries_lock);
     return -1;
 }
 
@@ -534,11 +535,13 @@ int add_to_open_file_table(int inumber, size_t offset) {
 void remove_from_open_file_table(int fhandle) {
     ALWAYS_ASSERT(valid_file_handle(fhandle),
                   "remove_from_open_file_table: file handle must be valid");
+    lock_mutex(&free_open_file_entries_lock);
 
     ALWAYS_ASSERT(free_open_file_entries[fhandle] == TAKEN,
                   "remove_from_open_file_table: file handle must be taken");
 
     free_open_file_entries[fhandle] = FREE;
+    unlock_mutex(&free_open_file_entries_lock);
 }
 
 /**
@@ -554,10 +557,12 @@ open_file_entry_t *get_open_file_entry(int fhandle) {
     if (!valid_file_handle(fhandle)) {
         return NULL;
     }
+    lock_mutex(&free_open_file_entries_lock);
 
     if (free_open_file_entries[fhandle] != TAKEN) {
         return NULL;
     }
+    unlock_mutex(&free_open_file_entries_lock);
 
     return &open_file_table[fhandle];
 }
